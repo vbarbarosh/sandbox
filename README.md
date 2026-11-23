@@ -8,3 +8,6 @@ Sandbox in a browser
 - [BrowserPod: Real Node.js, in the browser tab](https://browserpod.io/runtimes/node/)
 - [BrowserCode: A browser-based playground for fast-prototyping full-stack apps and sharing them instantly](https://browsercode.io/)
 - https://github.com/leaningtech/browserpod-meta
+- [Php-Wasm: PHP in Browser, powered by WebAssembly](https://php-wasm.seanmorr.is/demos.html)
+- [WordPress Playground](https://playground.wordpress.net/)
+- https://3v4l.org/
