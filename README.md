@@ -1,13 +1,25 @@
-Sandbox in a browser
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/cover-dark.png">
+  <img alt="sandbox" src="img/cover.png">
+</picture>
 
-## Resources
+# sandbox
 
-- [WebVM: A virtual Linux environment running in the browser via WebAssembly](https://webvm.io/)
-- [CheerpX: Native code virtualization as a JavaScript library](https://cheerpx.io/docs/overview)
-- [BrowserPod 4.0: the microVM that runs in the browser, now free for any use](https://browserpod.io/blog/browserpod-40/)
-- [BrowserPod: Real Node.js, in the browser tab](https://browserpod.io/runtimes/node/)
-- [BrowserCode: A browser-based playground for fast-prototyping full-stack apps and sharing them instantly](https://browsercode.io/)
-- https://github.com/leaningtech/browserpod-meta
-- [Php-Wasm: PHP in Browser, powered by WebAssembly](https://php-wasm.seanmorr.is/demos.html)
-- [WordPress Playground](https://playground.wordpress.net/)
-- https://3v4l.org/
+A sandbox in one browser tab: write HTML, CSS and JavaScript and watch it run beside the code.
+
+## Quick start
+
+The whole app is one page, `src/index.html`: open it in a browser.
+
+```sh
+git clone https://github.com/vbarbarosh/sandbox.git
+xdg-open sandbox/src/index.html
+```
+
+## Documentation
+
+Full documentation: **[docs/README.md](docs/README.md)**
+
+## License
+
+[MIT](LICENSE)
