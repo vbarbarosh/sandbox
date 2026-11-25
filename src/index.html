@@ -1002,6 +1002,18 @@
       +'<div style="opacity:.6">Script runs in the preview sandbox \u2014 output appears in the console</div></div>'
       +'<scr'+'ipt>'+src+'</scr'+'ipt></body></html>';
   }
+
+  /* a page or a picture renders; any other file without a viewer of its own is shown as text/plain,
+     as a browser shows it: .php .sh .py .css .xml .txt and the rest */
+  function preview_shows_as_page(file_name) {
+      return /\.(html?|xhtml|svg)$/i.test(file_name || '');
+  }
+
+  function preview_plain_text_doc(file) {
+      const text = esc(file.content || '');
+      return `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:8px"><pre style="margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:monospace;font-size:13px">${text}</pre></body></html>`;
+  }
+
   function injectConsole(html){
     var cap = SO + '(function(){var s=function(t,a){try{parent.postMessage({__sb:1,t:t,a:a.map(function(x){try{return (typeof x==="object"&&x!==null)?JSON.stringify(x):String(x)}catch(e){return String(x)}})},"*")}catch(e){}};["log","info","warn","error"].forEach(function(m){var o=console[m]?console[m].bind(console):function(){};console[m]=function(){s(m,[].slice.call(arguments));o.apply(null,arguments)}});window.addEventListener("error",function(e){s("error",[(e.message||"Error")+"  ("+(e.lineno||0)+":"+(e.colno||0)+")"])});window.addEventListener("unhandledrejection",function(e){s("error",["Unhandled rejection: "+((e.reason&&e.reason.message)||e.reason)])});var st;window.addEventListener("scroll",function(){clearTimeout(st);st=setTimeout(function(){try{parent.postMessage({__sbscroll:1,x:window.scrollX||0,y:window.scrollY||0},"*")}catch(e){}},100)},true);window.addEventListener("message",function(e){var d=e&&e.data;if(d&&d.__sbrestore===1){var dl=Date.now()+2000;(function r(){window.scrollTo(d.x||0,d.y||0);var ok=Math.abs((window.scrollY||0)-(d.y||0))<2||(window.scrollY||0)>=(document.documentElement.scrollHeight-window.innerHeight-2);if(!ok&&Date.now()<dl)requestAnimationFrame(r);})();}});})();' + SC;
     var themeJs = SO + 'window.addEventListener("message",function(e){var d=e&&e.data;if(d&&d.__sbtheme===1){var s=document.getElementById("__sbbase");if(s)s.textContent=":root{color-scheme:"+(d.dark?"dark":"light")+"}html{background:"+(d.dark?"#0d1014":"#ffffff")+";color:"+(d.dark?"#e7eaf0":"#1f2328")+"}"}});' + SC;
@@ -1239,7 +1251,7 @@
     if(f && isDrawio(f.name)){ ifr.srcdoc = drawioPreviewDoc(f); renderConsole(); return; }
     if(f && isExcalidraw(f.name)){ previewShownId=null; ifr.srcdoc = excalidrawDoc(f, true); renderConsole(); return; }
     if(f && f.binary){ ifr.srcdoc = injectConsole(binaryPreviewDoc(f)); renderConsole(); return; }
-    var html = f ? (isMdx(f.name) ? mdxToHtml(f) : isMarkdown(f.name) ? mdToHtml(f) : isJs(f.name) ? jsPreviewDoc(f) : assetRuntime(f.content, f)) : '<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0;color:#9aa3b2">No snippet selected</body>';
+    var html = f ? (isMdx(f.name) ? mdxToHtml(f) : isMarkdown(f.name) ? mdToHtml(f) : isJs(f.name) ? jsPreviewDoc(f) : preview_shows_as_page(f.name) ? assetRuntime(f.content, f) : preview_plain_text_doc(f)) : '<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0;color:#9aa3b2">No snippet selected</body>';
     ifr.srcdoc = injectConsole(html);
     renderConsole();
   }
@@ -1523,7 +1535,7 @@
     setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
   }
   function exportActive(){ var f=activeFile(); if(!f) return; if(f._pending || f._error){ showToast('File is still loading \u2014 try again in a moment'); return; } if(f.binary){ download(dataURLtoBlob(f.content), f.name); return; } download(new Blob([f.content],{type:'text/html'}), /\.html?$/i.test(f.name)?f.name:f.name+'.html'); }
-  function openNewTab(){ var f=activeFile(); if(!f) return; if(f._pending || f._error){ showToast('File is still loading \u2014 try again in a moment'); return; } var blob=f.binary?dataURLtoBlob(f.content):new Blob([f.content],{type:'text/html'}); var url=URL.createObjectURL(blob); window.open(url,'_blank'); setTimeout(function(){URL.revokeObjectURL(url);},6000); }
+  function openNewTab(){ var f=activeFile(); if(!f) return; if(f._pending || f._error){ showToast('File is still loading \u2014 try again in a moment'); return; } var blob=f.binary?dataURLtoBlob(f.content):new Blob([f.content],{type:preview_shows_as_page(f.name)?'text/html':'text/plain;charset=utf-8'}); var url=URL.createObjectURL(blob); window.open(url,'_blank'); setTimeout(function(){URL.revokeObjectURL(url);},6000); }
   function copyActive(){
     var f=activeFile(); if(!f) return;
     if(f._pending || f._error){ showToast('File is still loading \u2014 try again in a moment'); return; }
