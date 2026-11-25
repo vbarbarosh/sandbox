@@ -199,6 +199,9 @@
         <button class="iconbtn sm" id="zip-btn" title="Export all snippets as .zip">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6l2 2h7a1 1 0 0 1 1 1z"></path><path d="M12 10v6M9.5 13.5 12 16l2.5-2.5"></path></svg>
         </button>
+        <button class="iconbtn sm" id="zip-import-btn" title="Import a .zip as a new folder">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6l2 2h7a1 1 0 0 1 1 1z"></path><path d="M12 16v-6M9.5 12.5 12 10l2.5 2.5"></path></svg>
+        </button>
         <div style="flex:1"></div>
         <button class="iconbtn md" id="newfile-btn" title="New snippet">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M5 3h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M12 11v6M9 14h6"></path></svg>
@@ -264,6 +267,7 @@
 </div>
 <div id="popover-host"></div>
 <div id="toast"></div>
+<input type="file" id="zip-input" accept=".zip,application/zip" hidden>
 <div id="dropzone"><div class="dz-card"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"></path><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"></path></svg><span>Drop files or folders to import</span></div></div>
 <div id="newfile-modal" class="modal-back">
   <div class="modal" role="dialog" aria-modal="true">
@@ -1441,6 +1445,7 @@
       if(i>=roots.length) return Promise.resolve();
       var r=roots[i], p;
       if(r.dir) p=walkEntry(r.dir, destFolderId||null, created);
+      else if(r.file && /\.zip$/i.test(r.file.name||'')) p=zip_import(r.file, destFolderId||null, created);
       else if(r.file) p=importFileObj(r.file, destFolderId||null, created, i+1);
       else p=walkEntry(r.fileEntry, destFolderId||null, created);
       return p.then(function(){ return run(i+1); });
@@ -1480,9 +1485,9 @@
     for(var i=0;i<bytes.length;i++) crc=(crc>>>8)^crcTable[(crc^bytes[i])&0xFF];
     return (crc^0xFFFFFFFF)>>>0;
   }
-  function zipPath(f){
+  function zipPath(f, rootId){
     var parts=[f.name], fid=f.folderId, seen={};
-    while(fid){ var fo=folderById(fid); if(!fo||seen[fid]) break; seen[fid]=1; parts.unshift(fo.name); fid=fo.parentId||null; }
+    while(fid && fid!==rootId){ var fo=folderById(fid); if(!fo||seen[fid]) break; seen[fid]=1; parts.unshift(fo.name); fid=fo.parentId||null; }
     return parts.join('/');
   }
   function zipName(){
@@ -1492,9 +1497,9 @@
     return ts+'_'+slug+'.zip';
   }
   function dataURLtoBytes(d){ try{ var i=String(d).indexOf(','); var bin=atob(d.slice(i+1)); var arr=new Uint8Array(bin.length); for(var j=0;j<bin.length;j++) arr[j]=bin.charCodeAt(j); return arr; }catch(e){ return new Uint8Array(0); } }
-  function makeZip(){
+  function makeZip(files, rootId){
     var enc=new TextEncoder();
-    var entries=S.files.map(function(f){ return {nameB:enc.encode(zipPath(f)), data:(f.binary?dataURLtoBytes(f.content):enc.encode(f.content))}; });
+    var entries=(files||S.files).map(function(f){ return {nameB:enc.encode(zipPath(f, rootId)), data:(f.binary?dataURLtoBytes(f.content):enc.encode(f.content))}; });
     var now=new Date();
     var dosTime=((now.getHours()&0x1f)<<11)|((now.getMinutes()&0x3f)<<5)|((now.getSeconds()/2)&0x1f);
     var dosDate=(((now.getFullYear()-1980)&0x7f)<<9)|(((now.getMonth()+1)&0xf)<<5)|(now.getDate()&0x1f);
@@ -1527,6 +1532,267 @@
     if(!S.files.length) return;
     if(S.files.some(function(f){ return f._pending || f._error; })){ showToast('Some files are still loading \u2014 try again in a moment'); return; }
     download(makeZip(), zipName());
+  }
+
+  /* ---------- zip: one folder out; a zip in, as a new folder ----------
+     Written to vbarbarosh/rules (AGENTS.md): new code follows them, the code around it stays as it was. */
+  let zip_import_parent_id = null;
+
+  function folder_ids_under(folder_id) {
+      const out = new Set([folder_id]);
+      let grown = true;
+      while (grown) {
+          grown = false;
+          for (const folder of S.folders) {
+              if (!out.has(folder.id) && out.has(folder.parentId || null)) {
+                  out.add(folder.id);
+                  grown = true;
+              }
+          }
+      }
+      return out;
+  }
+
+  function folder_files(folder_id) {
+      const folder_ids = folder_ids_under(folder_id);
+      return S.files.filter(v => folder_ids.has(v.folderId));
+  }
+
+  function folder_name_unique(name, parent_id) {
+      const taken = new Set();
+      for (const folder of S.folders) {
+          if ((folder.parentId || null) === parent_id) {
+              taken.add((folder.name || '').toLowerCase());
+          }
+      }
+      let candidate = name;
+      for (let i = 2; taken.has(candidate.toLowerCase()); ++i) {
+          candidate = `${name}_${i}`;
+      }
+      return candidate;
+  }
+
+  // The zip holds the folder's contents, its own name only in the zip's name: importing it makes the folder again.
+  function folder_export_zip(folder_id) {
+      const folder = folderById(folder_id);
+      const files = folder_files(folder_id);
+      if (!folder || !files.length) {
+          return;
+      }
+      if (files.some(v => v._pending || v._error)) {
+          showToast('Some files are still loading — try again in a moment');
+          return;
+      }
+      download(makeZip(files, folder_id), `${folder.name}.zip`);
+  }
+
+  function zip_import_pick(parent_id) {
+      const input = document.getElementById('zip-input');
+      zip_import_parent_id = parent_id;
+      input.value = '';
+      input.click();
+  }
+
+  async function zip_input_change(event) {
+      const file = event.target.files[0];
+      const parent_id = zip_import_parent_id;
+      const created = {files: [], folders: []};
+      if (!file) {
+          return;
+      }
+      await zip_import(file, parent_id, created);
+      if (created.folders.length) {
+          zip_import_show(created, parent_id);
+      }
+  }
+
+  function zip_import_show(created, parent_id) {
+      const parent = folderById(parent_id);
+      if (parent) {
+          parent.collapsed = false;
+      }
+      if (created.files.length) {
+          captureViewState();
+          S.activeId = created.files[0].id;
+          headerRenaming = false;
+          loadActiveIntoEditor();
+          updatePreview();
+      }
+      save();
+      renderAll();
+  }
+
+  // A zip of one folder named as the zip itself (a GitHub download, a zip of a folder) gives that folder, not a folder in a folder.
+  async function zip_import(file, parent_id, created) {
+      let unpacked = null;
+      try {
+          unpacked = await zip_unpack(await file.arrayBuffer());
+      }
+      catch (error) {
+          showToast(`Could not import ${file.name}: ${error.message}`);
+          return;
+      }
+      if (!unpacked.files.length && !unpacked.dirs.length) {
+          showToast(`${file.name} holds no files`);
+          return;
+      }
+
+      const name = file.name.replace(/\.zip$/i, '') || 'zip';
+      const prefix = `${name}/`;
+      const wrapped = unpacked.files.every(v => v.path.startsWith(prefix))
+          && unpacked.dirs.every(v => (v === name) || v.startsWith(prefix));
+      const strip = wrapped ? prefix.length : 0;
+      const readonly = folderChainReadonly(parent_id);
+      const folder = {id: uid(), name: folder_name_unique(name, parent_id), parentId: parent_id, collapsed: false};
+      if (readonly) {
+          folder.readonly = true;
+      }
+      S.folders.push(folder);
+      created.folders.push(folder);
+
+      const folder_ids_by_path = new Map([['', folder.id]]);
+      for (const dir of unpacked.dirs) {
+          zip_folder_make(folder_ids_by_path, dir.slice(strip), readonly, created);
+      }
+      for (const entry of unpacked.files) {
+          const path = entry.path.slice(strip);
+          const cut = path.lastIndexOf('/');
+          const folder_id = zip_folder_make(folder_ids_by_path, path.slice(0, Math.max(cut, 0)), readonly, created);
+          const made = await zip_file_make(path.slice(cut + 1), entry.bytes, folder_id);
+          if (readonly) {
+              made.readonly = true;
+          }
+          S.files.push(made);
+          created.files.push(made);
+      }
+
+      const count = unpacked.files.length;
+      const message = (count === 1) ? `1 file imported into “${folder.name}”` : `${count} files imported into “${folder.name}”`;
+      if (unpacked.skipped) {
+          showToast(`${message}; ${unpacked.skipped} skipped: encrypted or packed in a way the browser cannot unpack`);
+      }
+      else {
+          showToast(message);
+      }
+  }
+
+  function zip_folder_make(folder_ids_by_path, path, readonly, created) {
+      if (folder_ids_by_path.has(path)) {
+          return folder_ids_by_path.get(path);
+      }
+      const cut = path.lastIndexOf('/');
+      const parent_id = zip_folder_make(folder_ids_by_path, path.slice(0, Math.max(cut, 0)), readonly, created);
+      const folder = {id: uid(), name: path.slice(cut + 1), parentId: parent_id, collapsed: false};
+      if (readonly) {
+          folder.readonly = true;
+      }
+      S.folders.push(folder);
+      created.folders.push(folder);
+      folder_ids_by_path.set(path, folder.id);
+      return folder.id;
+  }
+
+  async function zip_file_make(name, bytes, folder_id) {
+      const out = {id: uid(), name: uniqueFileName(name, folder_id), folderId: folder_id, content: ''};
+      if (zip_bytes_is_text(name, bytes)) {
+          out.content = new TextDecoder().decode(bytes);
+          return out;
+      }
+      out.binary = true;
+      out.mime = guessMime(name);
+      out.content = await readFileDataURL(new Blob([bytes], {type: out.mime}));
+      return out;
+  }
+
+  // Known extensions decide; an unknown one is text when it has no zero byte and reads as UTF-8.
+  function zip_bytes_is_text(name, bytes) {
+      if (TEXT_EXT.test(name)) {
+          return true;
+      }
+      if (fileIsBinary(name, '')) {
+          return false;
+      }
+      if (bytes.subarray(0, 8000).includes(0)) {
+          return false;
+      }
+      try {
+          new TextDecoder('utf-8', {fatal: true}).decode(bytes);
+          return true;
+      }
+      catch {
+          return false;
+      }
+  }
+
+  // Reads what the zip's table of contents lists: stored and deflated entries; a directory entry ends with "/".
+  async function zip_unpack(buffer) {
+      const view = new DataView(buffer);
+      const eocd = zip_eocd_offset(view);
+      if (eocd < 0) {
+          throw new Error('not a zip file');
+      }
+      const entry_count = view.getUint16(eocd + 10, true);
+      const decoder = new TextDecoder();
+      const out = {files: [], dirs: [], skipped: 0};
+
+      let offset = view.getUint32(eocd + 16, true);
+      for (let i = 0; i < entry_count; ++i) {
+          if ((offset + 46 > view.byteLength) || (view.getUint32(offset, true) !== 0x02014b50)) {
+              throw new Error('its table of contents is broken');
+          }
+          const flags = view.getUint16(offset + 8, true);
+          const method = view.getUint16(offset + 10, true);
+          const size = view.getUint32(offset + 20, true);
+          const name_length = view.getUint16(offset + 28, true);
+          const header_offset = view.getUint32(offset + 42, true);
+          const raw = decoder.decode(new Uint8Array(buffer, offset + 46, name_length));
+          const path = zip_path_clean(raw);
+          offset += 46 + name_length + view.getUint16(offset + 30, true) + view.getUint16(offset + 32, true);
+          if (!path || zip_path_is_junk(path)) {
+              continue;
+          }
+          if (raw.endsWith('/')) {
+              out.dirs.push(path);
+              continue;
+          }
+          if ((flags & 1) || ((method !== 0) && (method !== 8))) {
+              out.skipped++;
+              continue;
+          }
+          if ((size === 0xffffffff) || (header_offset === 0xffffffff)) {
+              throw new Error('ZIP64 is not supported');
+          }
+          const start = header_offset + 30 + view.getUint16(header_offset + 26, true) + view.getUint16(header_offset + 28, true);
+          const packed = new Uint8Array(buffer, start, size);
+          const bytes = (method === 8) ? await zip_inflate(packed) : packed;
+          out.files.push({path, bytes});
+      }
+      return out;
+  }
+
+  function zip_eocd_offset(view) {
+      const last = Math.max(0, view.byteLength - 22 - 0xffff);
+      for (let i = view.byteLength - 22; i >= last; --i) {
+          if (view.getUint32(i, true) === 0x06054b50) {
+              return i;
+          }
+      }
+      return -1;
+  }
+
+  async function zip_inflate(bytes) {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  function zip_path_clean(raw) {
+      const names = raw.replace(/\\/g, '/').split('/').filter(v => v && (v !== '.') && (v !== '..'));
+      return names.join('/');
+  }
+
+  // A Mac's zip carries its own bookkeeping beside the files.
+  function zip_path_is_junk(path) {
+      return (path === '__MACOSX') || path.startsWith('__MACOSX/') || (path.split('/').pop() === '.DS_Store');
   }
 
   /* ---------- rename focus helper ---------- */
@@ -1806,10 +2072,14 @@
     if(!menu){ host.innerHTML=''; return; }
     var items;
     if(menu.kind==='root'){
-      items=[['New snippet','newfile'],['New folder','newsub']];
+      items=[['New snippet','newfile'],['New folder','newsub'],['Import .zip','zipimport']];
     } else if(menu.isFolder){
       var foM=folderById(menu.id);
-      items=[['New snippet','newfile'],['New subfolder','newsub'],['Rename','rename'],[(foM&&foM.readonly)?'Unlock folder':'Lock folder (read-only)','lock'],['Delete folder','delete|sep|danger']];
+      items=[['New snippet','newfile'],['New subfolder','newsub'],['Import .zip here','zipimport']];
+      if (folder_files(menu.id).length) {
+          items.push(['Export as .zip', 'zipexport']);
+      }
+      items.push(['Rename','rename'],[(foM&&foM.readonly)?'Unlock folder':'Lock folder (read-only)','lock'],['Delete folder','delete|sep|danger']);
     } else {
       var isTpl=(S.templates && S.templates[fileType((fileById(menu.id)||{}).name)]===menu.id);
       var fM=null; for(var fmi=0;fmi<S.files.length;fmi++) if(S.files[fmi].id===menu.id){fM=S.files[fmi];break;}
@@ -1845,7 +2115,7 @@
     }
   }
   function runMenu(act){
-    if(menu && menu.kind==='root'){ closeMenu(); if(act==='newfile') newFileIn(null); else if(act==='newsub') newSubfolder(null); return; }
+    if(menu && menu.kind==='root'){ closeMenu(); if(act==='newfile') newFileIn(null); else if(act==='newsub') newSubfolder(null); else if(act==='zipimport') zip_import_pick(null); return; }
     var id=menu.id, isFolder=menu.isFolder; closeMenu();
     if(isFolder){
       if(act==='newfile') newFileIn(id);
@@ -1853,6 +2123,8 @@
       else if(act==='rename'){ renamingFolderId=id; renamingId=null; renderTree(); }
       else if(act==='lock') toggleReadonly(id, true);
       else if(act==='delete') deleteFolder(id);
+      else if(act==='zipimport') zip_import_pick(id);
+      else if(act==='zipexport') folder_export_zip(id);
     } else {
       if(act==='rename'){ renamingId=id; renamingFolderId=null; renderTree(); }
       else if(act==='dup') duplicate(id);
@@ -1870,6 +2142,8 @@
     else { try{ document.getElementById('preview').contentWindow.postMessage({__sbtheme:1, dark:S.theme==='dark'}, '*'); }catch(e){} }
   });
   document.getElementById('zip-btn').addEventListener('click', exportZip);
+  document.getElementById('zip-import-btn').addEventListener('click', () => zip_import_pick(null));
+  document.getElementById('zip-input').addEventListener('change', zip_input_change);
   document.getElementById('newfile-btn').addEventListener('click', function(){ newFileIn(currentFolderId()); });
   document.getElementById('newfolder-btn').addEventListener('click', function(){ newSubfolder(currentFolderId()); });
   document.getElementById('nf-grid').addEventListener('click', function(e){ var t=e.target.closest('[data-tpl]'); if(t) nfSelectType(t.getAttribute('data-tpl')); });
