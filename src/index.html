@@ -99,6 +99,8 @@
   .iconbtn.lg{width:30px;height:30px}
   .iconbtn.xl{width:32px;height:32px;border-color:var(--border)}
   .iconbtn.on{background:var(--active);color:var(--accent);border-color:var(--border)}
+  #php-stop-btn{color:#ef4444}
+  #php-stop-btn[hidden]{display:none}
 
   .resizer{flex:none;cursor:col-resize;background:var(--border);opacity:.55}
   .resizer:hover{background:var(--accent);opacity:1}
@@ -244,6 +246,9 @@
           </span>
           <span id="preview-label" style="font-size:12px;color:var(--muted);font-weight:550">Preview</span>
           <div style="flex:1"></div>
+          <button class="iconbtn lg" id="php-stop-btn" title="Stop the script" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+          </button>
           <button class="iconbtn lg" id="refresh-btn" title="Refresh preview">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v5h-5"></path></svg>
           </button>
@@ -1014,6 +1019,292 @@
       return `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:8px"><pre style="margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:monospace;font-size:13px">${text}</pre></body></html>`;
   }
 
+  /* ---------- PHP: the preview of a .php file shows what it prints ----------
+     php-wasm runs in a Worker of a hidden sandboxed iframe: PHP reaches its JavaScript host (Vrzno),
+     so it gets an opaque origin, as every snippet in the preview does, never the app's own. */
+  const PHP_WASM_URL = 'https://cdn.jsdelivr.net/npm/php-wasm@0.2.0/PhpWeb.mjs';
+  /* the runtime has no XML or mbstring of its own: SimpleXML, DOM, XML and mb_* load with it */
+  const PHP_WASM_LIBS = [
+      {name: 'libxml2.so', url: 'https://cdn.jsdelivr.net/npm/php-wasm-libxml@0.2.0/libxml2.so', ini: false},
+      {name: 'php8.4-xml.so', url: 'https://cdn.jsdelivr.net/npm/php-wasm-xml@0.2.0/php8.4-xml.so', ini: true},
+      {name: 'php8.4-dom.so', url: 'https://cdn.jsdelivr.net/npm/php-wasm-dom@0.2.0/php8.4-dom.so', ini: true},
+      {name: 'php8.4-simplexml.so', url: 'https://cdn.jsdelivr.net/npm/php-wasm-simplexml@0.2.0/php8.4-simplexml.so', ini: true},
+      {name: 'libonig.so', url: 'https://cdn.jsdelivr.net/npm/php-wasm-mbstring@0.2.0/libonig.so', ini: false},
+      {name: 'php8.4-mbstring.so', url: 'https://cdn.jsdelivr.net/npm/php-wasm-mbstring@0.2.0/php8.4-mbstring.so', ini: true},
+  ];
+  const PHP_RUN_LIMIT_MS = 10000;
+  const php_preview = {frame: null, ready: false, queued: null, seq: 0, file_id: null, running_id: 0, shown_doc: null, shown_id: null, wait_timer: null, limit_timer: null, busy: false, run_at: 0, loaded: false, waiting: false};
+
+  function php_file_runs(file_name) {
+      return /\.(php|phtml)$/i.test(file_name || '');
+  }
+
+  /* the worker: loads php-wasm once, runs each job in a fresh PHP with the snippets written under /snippets */
+  function php_worker_main(php_wasm_url, shared_libs) {
+      self.window = self;
+      self.document = {};
+      /* php-wasm waits on navigator.locks, which an opaque origin refuses; without it, it locks in memory */
+      Object.defineProperty(WorkerNavigator.prototype, 'locks', {get: () => undefined, configurable: true});
+      const out = [];
+      const err = [];
+      let php = null;
+      let used = false;
+      let chain = import(php_wasm_url).then(function (module) {
+          php = new module.PhpWeb({version: '8.4', sharedLibs: shared_libs});
+          php.addEventListener('output', function (event) {
+              out.push(event.detail.join(''));
+          });
+          php.addEventListener('error', function (event) {
+              err.push(event.detail.join(''));
+          });
+          return php.binary;
+      });
+      async function job_run(job) {
+          if (used) {
+              /* the files outlive refresh(): last run's snippets go, so a deleted one is not found;
+                 and refresh() loads the extensions again from the working directory: no chdir() outlives a run */
+              await php.run('<?php chdir("/"); $rm = function ($d) use (&$rm) { foreach (array_diff(scandir($d), [".", ".."]) as $n) { is_dir("$d/$n") ? $rm("$d/$n") : unlink("$d/$n"); } rmdir($d); }; if (is_dir("/snippets")) { $rm("/snippets"); }');
+              await php.refresh();
+          }
+          used = true;
+          out.length = 0;
+          err.length = 0;
+          for (const file of job.files) {
+              let dir = '';
+              for (const part of file.path.split('/').slice(0, -1)) {
+                  dir = `${dir}/${part}`;
+                  const info = await php.analyzePath(dir);
+                  if (!info.exists) {
+                      await php.mkdir(dir);
+                  }
+              }
+              await php.writeFile(`/${file.path}`, file.content);
+          }
+          self.postMessage({id: job.id, started: true});
+          const ret = await php.run(job.code);
+          return {id: job.id, ret, stdout: out.join(''), stderr: err.join('')};
+      }
+      self.onmessage = function (event) {
+          const job = event.data;
+          chain = chain.then(() => job_run(job)).then(function (result) {
+              self.postMessage(result);
+          }).catch(function (error) {
+              self.postMessage({id: job.id, ret: -1, stdout: out.join(''), stderr: String((error && error.message) || error)});
+          });
+      };
+  }
+
+  /* the hidden iframe: owns the worker and passes jobs and results between it and the app */
+  function php_runner_main(worker_src) {
+      const worker = new Worker(URL.createObjectURL(new Blob([worker_src], {type: 'text/javascript'})));
+      worker.onmessage = function (event) {
+          parent.postMessage({__sbphp: 1, result: event.data}, '*');
+      };
+      worker.onerror = function (event) {
+          parent.postMessage({__sbphp: 1, failed: String(event.message || 'the PHP worker failed')}, '*');
+      };
+      window.addEventListener('message', function (event) {
+          if (event.data && (event.data.__sbphp === 1)) {
+              worker.postMessage(event.data.job);
+          }
+      });
+      parent.postMessage({__sbphp: 1, ready: true}, '*');
+  }
+
+  function php_runner_start() {
+      const worker_src = `(${php_worker_main.toString()})(${JSON.stringify(PHP_WASM_URL)}, ${JSON.stringify(PHP_WASM_LIBS)});`;
+      const frame = document.createElement('iframe');
+      frame.setAttribute('sandbox', 'allow-scripts');
+      frame.setAttribute('title', 'PHP runner');
+      frame.style.display = 'none';
+      frame.srcdoc = `<!doctype html><meta charset="utf-8">${SO}(${php_runner_main.toString()})(${JSON.stringify(worker_src)});${SC}`;
+      document.body.appendChild(frame);
+      php_preview.frame = frame;
+      php_preview.ready = false;
+  }
+
+  /* an endless loop never answers: the iframe goes, and its worker with it */
+  function php_runner_stop() {
+      clearTimeout(php_preview.limit_timer);
+      if (php_preview.frame) {
+          php_preview.frame.remove();
+      }
+      php_preview.frame = null;
+      php_preview.ready = false;
+      php_preview.loaded = false;
+      php_preview.queued = null;
+  }
+
+  function php_quote(value) {
+      const escaped = value.replace(/[\\']/g, '\\$&');
+      return `'${escaped}'`;
+  }
+
+  function php_note_doc(text) {
+      const color = (S.theme === 'dark') ? '#9aa3b2' : '#5b636e';
+      return `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;font-size:13px;color:${color}">${esc(text)}</body></html>`;
+  }
+
+  /* shows a doc only while the file it is for is still the open one */
+  function php_preview_show(doc) {
+      const file = activeFile();
+      if (!file || (file.id !== php_preview.file_id)) {
+          return;
+      }
+      const html = injectConsole(doc);
+      php_preview.waiting = false;
+      php_preview.shown_doc = html;
+      php_preview.shown_id = file.id;
+      document.getElementById('preview').srcdoc = html;
+  }
+
+  function php_preview_run(file) {
+      const files = [];
+      for (const other of S.files) {
+          if (!other.binary && !other._pending && !other._error && (typeof other.content === 'string')) {
+              files.push({path: `snippets/${zipPath(other)}`, content: other.content});
+          }
+      }
+      const path = `/snippets/${zipPath(file)}`;
+      const dir = path.slice(0, path.lastIndexOf('/'));
+      php_preview.seq += 1;
+      php_preview.file_id = file.id;
+      php_preview.busy = true;
+      php_preview.run_at = Date.now();
+      php_stop_sync();
+      const job = {id: php_preview.seq, code: `<?php chdir(${php_quote(dir)}); require ${php_quote(path)};`, files};
+      clearTimeout(php_preview.wait_timer);
+      /* another file's preview stays no longer than a blink; this file's last output stays until the new one */
+      const showing_other = (document.getElementById('preview').srcdoc !== php_preview.shown_doc) || (php_preview.shown_id !== file.id);
+      php_preview.wait_timer = setTimeout(php_preview_wait_note, showing_other ? 0 : 400);
+      if (!php_preview.frame) {
+          php_runner_start();
+      }
+      if (php_preview.ready) {
+          php_preview.frame.contentWindow.postMessage({__sbphp: 1, job}, '*');
+      }
+      else {
+          php_preview.queued = job;
+      }
+  }
+
+  /* the job that runs too long is stopped, whichever it is; a newer one queued behind it runs again */
+  function php_preview_limit() {
+      clearTimeout(php_preview.wait_timer);
+      const stuck_is_latest = (php_preview.running_id === php_preview.seq);
+      php_runner_stop();
+      if (stuck_is_latest) {
+          php_preview_done();
+          php_preview_show(php_note_doc(`Stopped after ${PHP_RUN_LIMIT_MS / 1000} s: the script did not finish`));
+          return;
+      }
+      const file = activeFile();
+      if (file && (file.id === php_preview.file_id)) {
+          php_preview_run(file);
+      }
+  }
+
+  function php_preview_result(result) {
+      if (result.started) {
+          php_preview.running_id = result.id;
+          php_preview.loaded = true;
+          if (php_preview.waiting && (result.id === php_preview.seq)) {
+              php_preview_wait_note();
+          }
+          clearTimeout(php_preview.limit_timer);
+          php_preview.limit_timer = setTimeout(php_preview_limit, PHP_RUN_LIMIT_MS);
+          return;
+      }
+      clearTimeout(php_preview.limit_timer);
+      if (result.id !== php_preview.seq) {
+          return;
+      }
+      clearTimeout(php_preview.wait_timer);
+      php_preview_done();
+      const output = result.stdout + result.stderr;
+      if (result.ret === -1) {
+          /* a failed download or worker is not kept: the next run starts afresh */
+          php_runner_stop();
+          php_preview_show(php_note_doc(`PHP could not run: ${output || 'unknown error'}`));
+          return;
+      }
+      if (output === '') {
+          php_preview_show(php_note_doc((result.ret === 0) ? 'The script printed nothing' : `The script printed nothing and exited with ${result.ret}`));
+          return;
+      }
+      /* a whole page is shown as a page, as a server sends it; anything else as text/plain */
+      if (/^\s*<(!doctype\s+html|html)[\s>]/i.test(output)) {
+          php_preview_show(assetRuntime(output, activeFile()));
+          return;
+      }
+      php_preview_show(preview_plain_text_doc({content: output}));
+  }
+
+  function php_runner_message(message, source) {
+      if (!php_preview.frame || (source !== php_preview.frame.contentWindow)) {
+          return;
+      }
+      if (message.ready) {
+          php_preview.ready = true;
+          if (php_preview.queued) {
+              php_preview.frame.contentWindow.postMessage({__sbphp: 1, job: php_preview.queued}, '*');
+              php_preview.queued = null;
+          }
+          return;
+      }
+      if (message.failed) {
+          clearTimeout(php_preview.wait_timer);
+          clearTimeout(php_preview.limit_timer);
+          php_runner_stop();
+          php_preview_done();
+          php_preview_show(php_note_doc(`PHP could not run: ${message.failed}`));
+          return;
+      }
+      php_preview_result(message.result);
+  }
+
+  /* says what the wait is for: php-wasm still loading, or the script running */
+  function php_preview_wait_note() {
+      const text = php_preview.loaded ? 'Running the script…' : 'Loading php-wasm (about 4.5 MB), then running the script…';
+      php_preview_show(php_note_doc(text));
+      php_preview.waiting = true;
+  }
+
+  /* the Stop button shows only while the open file's script runs */
+  function php_running_here() {
+      const file = activeFile();
+      return php_preview.busy && !!file && (file.id === php_preview.file_id) && php_file_runs(file.name);
+  }
+
+  function php_stop_sync() {
+      document.getElementById('php-stop-btn').hidden = !php_running_here();
+  }
+
+  function php_preview_done() {
+      php_preview.busy = false;
+      php_stop_sync();
+  }
+
+  /* a script is stopped the only way a worker can be: the runner goes, so the next run loads php-wasm again */
+  function php_preview_stop() {
+      if (!php_running_here()) {
+          return;
+      }
+      clearTimeout(php_preview.wait_timer);
+      php_runner_stop();
+      php_preview_done();
+      const seconds = ((Date.now() - php_preview.run_at) / 1000).toFixed(1);
+      php_preview_show(php_note_doc(`Stopped after ${seconds} s. Refresh runs it again`));
+  }
+
+  /* Refresh while the script runs starts it again at once, not after the run in progress */
+  function preview_refresh_click() {
+      if (php_running_here()) {
+          php_runner_stop();
+      }
+      updatePreview();
+  }
+
   function injectConsole(html){
     var cap = SO + '(function(){var s=function(t,a){try{parent.postMessage({__sb:1,t:t,a:a.map(function(x){try{return (typeof x==="object"&&x!==null)?JSON.stringify(x):String(x)}catch(e){return String(x)}})},"*")}catch(e){}};["log","info","warn","error"].forEach(function(m){var o=console[m]?console[m].bind(console):function(){};console[m]=function(){s(m,[].slice.call(arguments));o.apply(null,arguments)}});window.addEventListener("error",function(e){s("error",[(e.message||"Error")+"  ("+(e.lineno||0)+":"+(e.colno||0)+")"])});window.addEventListener("unhandledrejection",function(e){s("error",["Unhandled rejection: "+((e.reason&&e.reason.message)||e.reason)])});var st;window.addEventListener("scroll",function(){clearTimeout(st);st=setTimeout(function(){try{parent.postMessage({__sbscroll:1,x:window.scrollX||0,y:window.scrollY||0},"*")}catch(e){}},100)},true);window.addEventListener("message",function(e){var d=e&&e.data;if(d&&d.__sbrestore===1){var dl=Date.now()+2000;(function r(){window.scrollTo(d.x||0,d.y||0);var ok=Math.abs((window.scrollY||0)-(d.y||0))<2||(window.scrollY||0)>=(document.documentElement.scrollHeight-window.innerHeight-2);if(!ok&&Date.now()<dl)requestAnimationFrame(r);})();}});})();' + SC;
     var themeJs = SO + 'window.addEventListener("message",function(e){var d=e&&e.data;if(d&&d.__sbtheme===1){var s=document.getElementById("__sbbase");if(s)s.textContent=":root{color-scheme:"+(d.dark?"dark":"light")+"}html{background:"+(d.dark?"#0d1014":"#ffffff")+";color:"+(d.dark?"#e7eaf0":"#1f2328")+"}"}});' + SC;
@@ -1228,6 +1519,7 @@
 
   function updatePreview(){
     var f = activeFile();
+    php_stop_sync();
     logs = [];
     capturePreviewScroll();
     if(f && (f._pending || f._error)){
@@ -1251,12 +1543,14 @@
     if(f && isDrawio(f.name)){ ifr.srcdoc = drawioPreviewDoc(f); renderConsole(); return; }
     if(f && isExcalidraw(f.name)){ previewShownId=null; ifr.srcdoc = excalidrawDoc(f, true); renderConsole(); return; }
     if(f && f.binary){ ifr.srcdoc = injectConsole(binaryPreviewDoc(f)); renderConsole(); return; }
+    if(f && php_file_runs(f.name)){ php_preview_run(f); renderConsole(); return; }
     var html = f ? (isMdx(f.name) ? mdxToHtml(f) : isMarkdown(f.name) ? mdToHtml(f) : isJs(f.name) ? jsPreviewDoc(f) : preview_shows_as_page(f.name) ? assetRuntime(f.content, f) : preview_plain_text_doc(f)) : '<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0;color:#9aa3b2">No snippet selected</body>';
     ifr.srcdoc = injectConsole(html);
     renderConsole();
   }
   window.addEventListener('message', function(e){
     var raw = e && e.data;
+    if(raw && raw.__sbphp===1){ php_runner_message(raw, e.source); return; }
     if(raw && raw.__sb===1){ logs.push({type:raw.t, args:(raw.a||[]).slice(), text:(raw.a||[]).join('  ')}); if(logs.length>300) logs.shift(); renderConsole(); return; }
     if(raw && raw.__sbscroll===1){ if(previewShownId!=null){ (viewState[previewShownId]=viewState[previewShownId]||{}).pv={x:raw.x||0,y:raw.y||0}; clearTimeout(pvSaveTimer); pvSaveTimer=setTimeout(save,400); } return; }
     if(raw && raw.__sbiz===1){ if(previewShownId!=null){ (viewState[previewShownId]=viewState[previewShownId]||{}).iz=!!raw.z; clearTimeout(pvSaveTimer); pvSaveTimer=setTimeout(save, 800); } return; }
@@ -2221,7 +2515,8 @@
   document.getElementById('search-clear').addEventListener('click', function(){ var s=document.getElementById('search'); s.value=''; S.search=''; this.hidden=true; s.focus(); renderTree(); });
   document.getElementById('copy-btn').addEventListener('click', copyActive);
   document.getElementById('export-btn').addEventListener('click', exportActive);
-  document.getElementById('refresh-btn').addEventListener('click', updatePreview);
+  document.getElementById('php-stop-btn').addEventListener('click', php_preview_stop);
+  document.getElementById('refresh-btn').addEventListener('click', preview_refresh_click);
   document.getElementById('newtab-btn').addEventListener('click', openNewTab);
   document.getElementById('console-btn').addEventListener('click', function(){ S.consoleOpen=!S.consoleOpen; save(); renderConsole(); syncConsoleBtn(); });
   document.getElementById('toggle-sb').addEventListener('click', function(){ S.sidebarHidden=!S.sidebarHidden; save(); applyLayout(); setTimeout(function(){ cm&&cm.refresh(); },60); });
