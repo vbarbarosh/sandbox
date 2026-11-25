@@ -296,10 +296,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/meta.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/loadmode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/multiplex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/overlay.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
 <script>
 "use strict";
 (function(){
@@ -494,7 +499,54 @@
   var isDrawio = function(name){ return /\.drawio(\.[a-z0-9]+)?$/i.test(name||''); };
   var isExcalidraw = function(name){ return /\.excalidraw$/i.test(name||''); };
   var isJs = function(name){ return /\.(js|mjs|cjs|jsx)$/i.test(name||''); };
-  var modeFor = function(name){ if(isMarkdown(name)||isMdx(name)) return 'markdown'; if(isJson(name)) return {name:'javascript', json:true}; if(isJs(name)) return 'javascript'; if(/\.(ts|tsx)$/i.test(name||'')) return {name:'javascript', typescript:true}; if(/\.(css|scss|less)$/i.test(name||'')) return 'css'; if(/\.drawio(\.(xml|svg))?$/i.test(name||'')) return 'xml'; return 'htmlmixed'; };
+  var modeFor = function(name){ if(isMarkdown(name)||isMdx(name)) return 'markdown'; if(isJson(name)) return {name:'javascript', json:true}; if(isJs(name)) return 'javascript'; if(/\.(ts|tsx)$/i.test(name||'')) return {name:'javascript', typescript:true}; if(/\.(css|scss|less)$/i.test(name||'')) return 'css'; if(/\.drawio(\.(xml|svg))?$/i.test(name||'')) return 'xml'; return codemirror_mime_from_file_name(name); };
+
+  /* ---------- editor modes: every language CodeMirror knows, loaded when a file of it opens ----------
+     Written to vbarbarosh/rules (AGENTS.md): new code follows them, the code around it stays as it was. */
+  CodeMirror.modeURL = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/%N/%N.min.js';
+
+  /* extensions the app keeps as text that CodeMirror's list does not know */
+  const CODEMIRROR_MIME_BY_EXTENSION = new Map([
+      ['csv', 'text/plain'],
+      ['env', 'text/x-properties'],
+      ['fish', 'text/x-sh'],
+      ['gitignore', 'text/plain'],
+      ['gql', 'text/plain'],
+      ['graphql', 'text/plain'],
+      ['jsonc', 'application/json'],
+      ['tsv', 'text/plain'],
+      ['zsh', 'text/x-sh'],
+  ]);
+
+  function codemirror_mime_from_file_name(file_name) {
+      if (!file_name) {
+          return 'htmlmixed';
+      }
+      const match = /\.([^.]+)$/.exec(file_name);
+      const extension = match ? match[1].toLowerCase() : '';
+      const known = CODEMIRROR_MIME_BY_EXTENSION.get(extension);
+      if (known) {
+          return known;
+      }
+      const info = CodeMirror.findModeByFileName(file_name);
+      if (!info) {
+          return 'htmlmixed';
+      }
+      /* a .php file is HTML around its <?php ... ?> blocks; CodeMirror's first PHP mime is the code alone */
+      if (info.mode === 'php') {
+          return 'application/x-httpd-php';
+      }
+      return info.mime;
+  }
+
+  /* the editor shows a language not loaded yet as plain text, and highlights it once its mode arrives */
+  function editor_mode_load(editor) {
+      const mode = editor.getOption('mode');
+      const info = (typeof mode === 'string') ? CodeMirror.findModeByMIME(mode) : null;
+      if (info) {
+          CodeMirror.autoLoadMode(editor, info.mode);
+      }
+  }
 
   /* ---------- binary file support ---------- */
   var TEXT_EXT=/\.(txt|md|mdx|markdown|mdown|mkd|html?|htm|xml|svg|css|scss|less|js|mjs|cjs|jsx|ts|tsx|json|jsonc|ya?ml|toml|ini|conf|csv|tsv|log|sh|bash|zsh|fish|py|rb|go|rs|java|kt|c|h|cpp|cc|hpp|cs|php|pl|lua|r|sql|graphql|gql|vue|svelte|astro|env|gitignore|map)$/i;
@@ -825,6 +877,7 @@
     cm.setValue(f && f.content != null ? f.content : '');
     cm.clearHistory();
     cm.setOption('mode', modeFor(f?f.name:''));
+    editor_mode_load(cm);
     var vs = viewState[S.activeId];
     if(vs){
       try{ cm.setCursor(vs.cursor); cm.scrollTo(vs.scroll.left, vs.scroll.top); }catch(e){}
