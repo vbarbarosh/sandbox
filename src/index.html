@@ -121,6 +121,14 @@
   .editor-col{background:var(--panel)}
   .preview-col{background:var(--panel-2)}
   .pane-head{height:40px;flex:none;display:flex;align-items:center;gap:8px;padding:0 8px;background:var(--panel);border-bottom:1px solid var(--border)}
+  .preview-timer{position:relative;display:flex;align-items:center;gap:5px;height:30px;padding:0 7px;border-radius:7px;color:var(--muted);cursor:pointer}
+  .preview-timer:hover,.preview-timer:focus-within{background:var(--hover);color:var(--fg)}
+  .preview-timer.on{color:var(--accent)}
+  .preview-timer[hidden]{display:none}
+  .preview-timer select{appearance:none;border:0;outline:none;padding:0 13px 0 0;background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:600;cursor:pointer;color-scheme:dark}
+  body.light .preview-timer select{color-scheme:light}
+  .preview-timer option{background:var(--panel);color:var(--fg)}
+  .preview-timer .chev{position:absolute;right:6px;pointer-events:none}
   .fname{font-size:12.5px;color:var(--fg);font-weight:550;cursor:text}
   .fname-input{font-size:12.5px;font-weight:550;color:var(--fg);background:var(--panel-2);border:1px solid var(--accent);border-radius:5px;padding:2px 7px;outline:none;width:210px}
   .cm-host{flex:1;min-height:0;position:relative}
@@ -284,6 +292,11 @@
           <button class="iconbtn lg" id="refresh-btn" title="Refresh preview">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v5h-5"></path></svg>
           </button>
+          <label class="preview-timer" id="preview-timer" title="Refresh the preview every few seconds, never while it still loads" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5M9.5 2h5"></path></svg>
+            <select id="preview-timer-select" aria-label="Refresh the preview every"></select>
+            <svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+          </label>
           <button class="iconbtn lg" id="newtab-btn" title="Open in new tab">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4 10 14M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"></path></svg>
           </button>
@@ -2815,6 +2828,96 @@
   }
   function syncConsoleBtn(){ document.getElementById('console-btn').classList.toggle('on', !!S.consoleOpen); }
 
+  /* ---------- the preview refreshed by a timer ----------
+     a refresh starts only once the page of the one before has loaded and the seconds have passed since: a page still
+     loading, or a PHP script still running, is never pulled again. The choice is each file's own */
+  const PREVIEW_TIMER_OPTIONS = [
+      {value: 0, label: 'Off'},
+      {value: 1, label: '1 s'},
+      {value: 2, label: '2 s'},
+      {value: 5, label: '5 s'},
+      {value: 10, label: '10 s'},
+  ];
+  const PREVIEW_TIMER_TICK_MS = 200;
+  const preview_timer = {loading: false, loaded_at: 0};
+
+  function render_preview_timer_options() {
+      const options = [];
+      for (const option of PREVIEW_TIMER_OPTIONS) {
+          options.push(`<option value="${option.value}">${option.label}</option>`);
+      }
+      return options.join('');
+  }
+
+  function preview_timer_seconds(file) {
+      const view = file && viewState[file.id];
+      return (view && view.rt) || 0;
+  }
+
+  /* the JSON, draw.io and Excalidraw editors are no page a refresh reloads */
+  function preview_timer_fits(file) {
+      return !!file && !isJson(file.name) && !isDrawio(file.name) && !isExcalidraw(file.name);
+  }
+
+  function preview_timer_sync(file, seconds) {
+      const label = document.getElementById('preview-timer');
+      const select = document.getElementById('preview-timer-select');
+      label.hidden = !preview_timer_fits(file);
+      label.classList.toggle('on', seconds > 0);
+      if (select.value !== String(seconds)) {
+          select.value = String(seconds);
+      }
+  }
+
+  function preview_timer_tick() {
+      const file = activeFile();
+      const seconds = preview_timer_fits(file) ? preview_timer_seconds(file) : 0;
+      preview_timer_sync(file, seconds);
+      if (!seconds || document.hidden || (previewShownId !== file.id)) {
+          return;
+      }
+      if (preview_timer.loading || php_running_here()) {
+          return;
+      }
+      if ((Date.now() - preview_timer.loaded_at) < (seconds * 1000)) {
+          return;
+      }
+      updatePreview();
+  }
+
+  function preview_timer_change(event) {
+      const file = activeFile();
+      if (!file) {
+          return;
+      }
+      if (!viewState[file.id]) {
+          viewState[file.id] = {};
+      }
+      viewState[file.id].rt = Number(event.target.value);
+      save();
+      preview_timer.loaded_at = Date.now();
+      preview_timer_sync(file, viewState[file.id].rt);
+  }
+
+  /* a page set into the preview frame, by the timer, a Refresh, an edit or a PHP script's end, loads until the frame
+     says it has loaded; the frame may be a new one in place of the old */
+  function preview_timer_srcdoc(records) {
+      for (const record of records) {
+          if (record.target.id === 'preview') {
+              preview_timer.loading = true;
+          }
+      }
+  }
+
+  /* every page the preview frame finishes restarts the count */
+  function preview_timer_load(event) {
+      if (event.target.id !== 'preview') {
+          return;
+      }
+      preview_timer.loading = false;
+      preview_timer.loaded_at = Date.now();
+  }
+
   /* ---------- theme / layout ---------- */
   function applyTheme(){
     document.body.classList.toggle('light', S.theme==='light');
@@ -2966,6 +3069,12 @@
     if(e.target.closest('[data-closemenu]')){ closeMenu(); return; }
     var mi=e.target.closest('[data-menuact]'); if(mi){ runMenu(mi.getAttribute('data-menuact')); }
   });
+
+  document.getElementById('preview-timer-select').innerHTML = render_preview_timer_options();
+  document.getElementById('preview-timer-select').addEventListener('change', preview_timer_change);
+  new MutationObserver(preview_timer_srcdoc).observe(document.getElementById('preview-stack'), {subtree: true, attributeFilter: ['srcdoc']});
+  document.addEventListener('load', preview_timer_load, true);
+  setInterval(preview_timer_tick, PREVIEW_TIMER_TICK_MS);
 
   // tree delegation
   var tree=document.getElementById('tree');
