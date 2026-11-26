@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+
+RED="\e[31m" GREEN="\e[32m" RESET="\e[0m"
+
+EXIT_MESSAGE="${RED}bin/release failed${RESET}"
+
+# http://redsymbol.net/articles/bash-exit-traps/
+trap 'echo -e "$EXIT_MESSAGE"' EXIT
+cd $scriptdir/..
+
+case "${1-}" in
+major|minor|patch)
+    ;;
+*)
+    echo usage: release 'major|minor|patch' >&2
+    exit 1
+    ;;
+esac
+
+# Ensure that there are no changes
+if [ -n "$(git status --porcelain)" ]; then
+    echo release: the working tree has changes >&2
+    exit 1
+fi
+
+# The version is one line of src/index.html, the one the About shows
+version_line="^  const SANDBOX_VERSION = '([0-9]+)\.([0-9]+)\.([0-9]+)';$"
+if [ "$(grep -cE "$version_line" src/index.html)" != 1 ]; then
+    echo "release: src/index.html has no one line const SANDBOX_VERSION = 'x.y.z';" >&2
+    exit 1
+fi
+old=$(sed -nE "s/$version_line/\1.\2.\3/p" src/index.html)
+IFS=. read -r major minor patch <<< "$old"
+case "$1" in
+major)
+    new="$((major + 1)).0.0"
+    ;;
+minor)
+    new="$major.$((minor + 1)).0"
+    ;;
+patch)
+    new="$major.$minor.$((patch + 1))"
+    ;;
+esac
+sed -i -E "s/$version_line/  const SANDBOX_VERSION = '$new';/" src/index.html
+
+git add src/index.html
+git commit -m "release: v$new"
+# Create a tag
+git tag v$new
+
+EXIT_MESSAGE="${GREEN}bin/release succeeded: v$old → v$new${RESET}"
