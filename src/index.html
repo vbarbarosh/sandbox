@@ -1264,7 +1264,7 @@
     var m=(name||'').toLowerCase().match(/\.([a-z0-9]+)$/);
     return m ? m[1] : 'file';
   }
-  var TYPE_LABELS={ html:'HTML', json:'JSON', xml:'XML', drawio:'draw.io', excalidraw:'Excalidraw', md:'Markdown', mdx:'MDX' };
+  var TYPE_LABELS={ html:'HTML', js:'JavaScript', php:'PHP', json:'JSON', xml:'XML', drawio:'draw.io', excalidraw:'Excalidraw', md:'Markdown', mdx:'MDX' };
   function typeLabel(t){ return TYPE_LABELS[t] || t.toUpperCase(); }
   function templateForType(t){ var id=S.templates&&S.templates[t]; if(!id) return null; for(var i=0;i<S.files.length;i++) if(S.files[i].id===id && !S.files[i].binary) return S.files[i]; return null; }
   function activeFile(){ for(var i=0;i<S.files.length;i++) if(S.files[i].id===S.activeId) return S.files[i]; return null; }
@@ -2152,6 +2152,12 @@
   var NF_TEMPLATES = [
     { id:'html', name:'HTML', ext:'.html', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e3743a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 8-4 4 4 4M15 8l4 4-4 4"></path></svg>',
       content:function(){ var tpl=templateForType('html'); return tpl ? tpl.content : NEWHTML; } },
+    { id:'js', name:'JavaScript', ext:'.js', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9b92e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6v8.5a3 3 0 0 1-5 2.2"></path><path d="M20 7.5a2.6 2.6 0 0 0-2.4-1.5c-1.5 0-2.6.9-2.6 2.2s1.1 1.9 2.6 2.4 2.6 1.2 2.6 2.5-1.2 2.4-2.7 2.4a2.8 2.8 0 0 1-2.6-1.6"></path></svg>',
+      content:function(){ var tpl=templateForType('js'); return tpl ? tpl.content : 'console.log(\'Hello from JavaScript\');\n'; } },
+    { id:'php', name:'PHP', ext:'.php', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8892d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5"></path><path d="M13 8.5a3 3 0 1 1 4.2 2.7c-1 .5-1.7 1.2-1.7 2.3v.5"></path><path d="M15.5 18h.01"></path></svg>',
+      content:function(){ var tpl=templateForType('php'); return tpl ? tpl.content : '<?php\n\necho "Hello from PHP\\n";\n'; } },
+    { id:'md', name:'Markdown', ext:'.md', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8aa0b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"></rect><path d="M6 15V9l3 3 3-3v6"></path><path d="M17 9v6m-2.2-2.2L17 15l2.2-2.2"></path></svg>',
+      content:function(){ var tpl=templateForType('md'); return tpl ? tpl.content : '# New snippet\n\n'; } },
     { id:'json', name:'JSON', ext:'.json', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#caa53d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2M16 4a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2"></path></svg>',
       content:function(){ var tpl=templateForType('json'); return tpl ? tpl.content : '{\n    \n}'; } },
     { id:'xml', name:'XML', ext:'.xml', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5aa86a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 8-4 4 4 4M14 8l4 4-4 4"></path></svg>',
