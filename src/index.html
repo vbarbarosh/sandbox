@@ -108,8 +108,8 @@
   .iconbtn.lg{width:30px;height:30px}
   .iconbtn.xl{width:32px;height:32px;border-color:var(--border)}
   .iconbtn.on{background:var(--active);color:var(--accent);border-color:var(--border)}
-  #php-stop-btn{color:#ef4444}
-  #php-stop-btn[hidden]{display:none}
+  #preview-stop-btn{color:#ef4444}
+  #preview-stop-btn[hidden]{display:none}
 
   .resizer{flex:none;cursor:col-resize;background:var(--border);opacity:.55}
   .resizer:hover{background:var(--accent);opacity:1}
@@ -286,7 +286,7 @@
           </span>
           <span id="preview-label" style="font-size:12px;color:var(--muted);font-weight:550">Preview</span>
           <div style="flex:1"></div>
-          <button class="iconbtn lg" id="php-stop-btn" title="Stop the script" hidden>
+          <button class="iconbtn lg" id="preview-stop-btn" title="Stop the script" hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
           </button>
           <button class="iconbtn lg" id="refresh-btn" title="Refresh preview">
@@ -1614,7 +1614,7 @@
       php_preview.file_id = file.id;
       php_preview.busy = true;
       php_preview.run_at = Date.now();
-      php_stop_sync();
+      preview_stop_sync();
       const job = {id: php_preview.seq, code: `<?php chdir(${php_quote(dir)}); require ${php_quote(path)};`, files};
       clearTimeout(php_preview.wait_timer);
       /* another file's preview stays no longer than a blink; this file's last output stays until the new one */
@@ -1713,19 +1713,19 @@
       php_preview.waiting = true;
   }
 
-  /* the Stop button shows only while the open file's script runs */
+  /* the Stop button shows while the open file's PHP script runs, or while the preview's page does not answer */
   function php_running_here() {
       const file = activeFile();
       return php_preview.busy && !!file && (file.id === php_preview.file_id) && php_file_runs(file.name);
   }
 
-  function php_stop_sync() {
-      document.getElementById('php-stop-btn').hidden = !php_running_here();
+  function preview_stop_sync() {
+      document.getElementById('preview-stop-btn').hidden = !(php_running_here() || page_watch.hung);
   }
 
   function php_preview_done() {
       php_preview.busy = false;
-      php_stop_sync();
+      preview_stop_sync();
   }
 
   /* a script is stopped the only way a worker can be: the runner goes, so the next run loads php-wasm again */
@@ -1740,6 +1740,15 @@
       php_preview_show(php_note_doc(`Stopped after ${seconds} s. Refresh runs it again`));
   }
 
+  function preview_stop_click() {
+      if (php_running_here()) {
+          php_preview_stop();
+      }
+      else if (page_watch.hung) {
+          page_stop();
+      }
+  }
+
   /* Refresh while the script runs starts it again at once, not after the run in progress */
   function preview_refresh_click() {
       if (php_running_here()) {
@@ -1748,10 +1757,131 @@
       updatePreview();
   }
 
+  /* ---------- a page that stops answering: an endless loop in a snippet's script ----------
+     every opaque frame (the preview, the JSON viewer, the PHP runner) runs in one process: a loop in a page hangs them
+     all, the app itself goes on; only all of them new get a new process. Chrome keeps a removed frame that listens for
+     pagehide or visibilitychange up to 500 ms for its handlers, and a frame added meanwhile joins the old, hung process:
+     so the beat listens for neither, and a page that never ran gets fresh frames once more */
+  const PAGE_TICK_MS = 500;
+  const PAGE_HUNG_MS = 2000;
+  const PAGE_QUIET_RENEW_MS = 1000;
+  const page_watch = {srcdoc: null, beats: false, beaten: false, loads: 0, renewals: 0, last: 0, tick: 0, hung: false};
+  /* the first beat comes before any script of the page. A dialog (alert, confirm, prompt) holds the page as a loop
+     would, and Chrome hands the app no message the page posts until it closes: Stop may show behind a dialog left
+     open, where nothing can be clicked, and goes with the first beat after it */
+  const PAGE_BEAT_JS = `${SO}(function () {
+      function beat() { try { parent.postMessage({__sbbeat: 1}, "*"); } catch (error) {} }
+      beat();
+      setInterval(beat, ${PAGE_TICK_MS});
+  })();${SC}`;
+
+  function page_beat(source) {
+      if (source !== document.getElementById('preview').contentWindow) {
+          return;
+      }
+      /* a new page's first beat can come before the tick has seen its srcdoc */
+      page_watch_doc(Date.now());
+      page_watch.beats = true;
+      page_watch.beaten = true;
+      page_watch.renewals = 0;
+      page_watch.last = Date.now();
+      page_watch_set(false);
+  }
+
+  function page_watch_tick() {
+      const now = Date.now();
+      const gap = now - page_watch.tick;
+      page_watch.tick = now;
+      const new_page = page_watch_doc(now);
+      if (!new_page && (document.hidden || (gap > 2 * PAGE_TICK_MS))) {
+          /* the app itself was held up or hidden: a beat missed then is not the page's */
+          page_watch.last = now;
+      }
+      const quiet = page_quiet_ms();
+      if ((quiet >= PAGE_HUNG_MS) && !page_watch.beaten && (page_watch.renewals < 1)) {
+          /* not one line of this page ran: it was given the process of a page before it; the same page, in new frames */
+          const doc = document.getElementById('preview').srcdoc;
+          page_watch.renewals += 1;
+          preview_frames_renew();
+          document.getElementById('preview').srcdoc = doc;
+          return;
+      }
+      page_watch_set(quiet >= PAGE_HUNG_MS);
+  }
+
+  /* true when the preview holds another page than at the last look */
+  function page_watch_doc(now) {
+      const doc = document.getElementById('preview').srcdoc;
+      if (doc === page_watch.srcdoc) {
+          return false;
+      }
+      page_watch.srcdoc = doc;
+      page_watch.beats = doc.includes('__sbbeat');
+      page_watch.beaten = false;
+      page_watch.loads = 0;
+      page_watch.last = now;
+      return true;
+  }
+
+  /* the preview's page loads once; a load after it is another page the frame went to, one that does not beat */
+  function page_load(event) {
+      if (event.target.id !== 'preview') {
+          return;
+      }
+      page_watch_doc(Date.now());
+      page_watch.loads += 1;
+      if (page_watch.loads > 1) {
+          page_watch.beats = false;
+          page_watch_set(false);
+      }
+  }
+
+  function page_quiet_ms() {
+      return page_watch.beats ? (Date.now() - page_watch.last) : 0;
+  }
+
+  function page_watch_set(hung) {
+      if (hung !== page_watch.hung) {
+          page_watch.hung = hung;
+          preview_stop_sync();
+      }
+  }
+
+  /* fresh frames for the preview and the JSON viewer, and no PHP runner: the hung process goes with the old ones */
+  function preview_frames_renew() {
+      php_runner_stop();
+      php_preview.busy = false;
+      for (const id of ['preview', 'json-frame']) {
+          const old = document.getElementById(id);
+          const fresh = old.cloneNode(false);
+          fresh.removeAttribute('srcdoc');
+          fresh.removeAttribute('data-init');
+          old.replaceWith(fresh);
+      }
+      jsonFrameReady = false;
+      page_watch.srcdoc = null;
+      page_watch.beats = false;
+      page_watch_set(false);
+      preview_stop_sync();
+  }
+
+  function page_stop() {
+      const seconds = (page_quiet_ms() / 1000).toFixed(1);
+      const file = activeFile();
+      const shown_in_preview = !!file && (previewShownId === file.id);
+      preview_frames_renew();
+      if (!shown_in_preview) {
+          updatePreview();
+          return;
+      }
+      previewShownId = null;
+      document.getElementById('preview').srcdoc = injectConsole(php_note_doc(`Stopped after ${seconds} s: the page did not answer. Refresh runs it again`));
+  }
+
   function injectConsole(html){
     var cap = SO + '(function(){var s=function(t,a){try{parent.postMessage({__sb:1,t:t,a:a.map(function(x){try{return (typeof x==="object"&&x!==null)?JSON.stringify(x):String(x)}catch(e){return String(x)}})},"*")}catch(e){}};["log","info","warn","error"].forEach(function(m){var o=console[m]?console[m].bind(console):function(){};console[m]=function(){s(m,[].slice.call(arguments));o.apply(null,arguments)}});window.addEventListener("error",function(e){s("error",[(e.message||"Error")+"  ("+(e.lineno||0)+":"+(e.colno||0)+")"])});window.addEventListener("unhandledrejection",function(e){s("error",["Unhandled rejection: "+((e.reason&&e.reason.message)||e.reason)])});var st;window.addEventListener("scroll",function(){clearTimeout(st);st=setTimeout(function(){try{parent.postMessage({__sbscroll:1,x:window.scrollX||0,y:window.scrollY||0},"*")}catch(e){}},100)},true);window.addEventListener("message",function(e){var d=e&&e.data;if(d&&d.__sbrestore===1){var dl=Date.now()+2000;(function r(){window.scrollTo(d.x||0,d.y||0);var ok=Math.abs((window.scrollY||0)-(d.y||0))<2||(window.scrollY||0)>=(document.documentElement.scrollHeight-window.innerHeight-2);if(!ok&&Date.now()<dl)requestAnimationFrame(r);})();}});})();' + SC;
     var themeJs = SO + 'window.addEventListener("message",function(e){var d=e&&e.data;if(d&&d.__sbtheme===1){var s=document.getElementById("__sbbase");if(s)s.textContent=":root{color-scheme:"+(d.dark?"dark":"light")+"}html{background:"+(d.dark?"#0d1014":"#ffffff")+";color:"+(d.dark?"#e7eaf0":"#1f2328")+"}"}});' + SC;
-    var inj = previewBaseStyle() + cap + themeJs;
+    var inj = previewBaseStyle() + cap + themeJs + PAGE_BEAT_JS;
     if(/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, function(m){return m+inj;});
     if(/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, function(m){return m+inj;});
     return inj + html;
@@ -1962,7 +2092,11 @@
 
   function updatePreview(){
     var f = activeFile();
-    php_stop_sync();
+    if (page_quiet_ms() >= PAGE_QUIET_RENEW_MS) {
+      preview_frames_renew();
+    }
+    page_watch.renewals = 0;
+    preview_stop_sync();
     logs = [];
     capturePreviewScroll();
     if(f && (f._pending || f._error)){
@@ -1994,6 +2128,7 @@
   window.addEventListener('message', function(e){
     var raw = e && e.data;
     if(raw && raw.__sbphp===1){ php_runner_message(raw, e.source); return; }
+    if(raw && (raw.__sbbeat === 1)){ page_beat(e.source); return; }
     if(raw && raw.__sb===1){ logs.push({type:raw.t, args:(raw.a||[]).slice(), text:(raw.a||[]).join('  ')}); if(logs.length>300) logs.shift(); renderConsole(); return; }
     if(raw && raw.__sbscroll===1){ if(previewShownId!=null){ (viewState[previewShownId]=viewState[previewShownId]||{}).pv={x:raw.x||0,y:raw.y||0}; clearTimeout(pvSaveTimer); pvSaveTimer=setTimeout(save,400); } return; }
     if(raw && raw.__sbiz===1){ if(previewShownId!=null){ (viewState[previewShownId]=viewState[previewShownId]||{}).iz=!!raw.z; clearTimeout(pvSaveTimer); pvSaveTimer=setTimeout(save, 800); } return; }
@@ -3058,7 +3193,9 @@
   document.getElementById('search-clear').addEventListener('click', function(){ var s=document.getElementById('search'); s.value=''; S.search=''; this.hidden=true; s.focus(); renderTree(); });
   document.getElementById('copy-btn').addEventListener('click', copyActive);
   document.getElementById('export-btn').addEventListener('click', exportActive);
-  document.getElementById('php-stop-btn').addEventListener('click', php_preview_stop);
+  document.getElementById('preview-stop-btn').addEventListener('click', preview_stop_click);
+  setInterval(page_watch_tick, PAGE_TICK_MS);
+  document.addEventListener('load', page_load, true);
   document.getElementById('refresh-btn').addEventListener('click', preview_refresh_click);
   document.getElementById('newtab-btn').addEventListener('click', openNewTab);
   document.getElementById('console-btn').addEventListener('click', function(){ S.consoleOpen=!S.consoleOpen; save(); renderConsole(); syncConsoleBtn(); });
