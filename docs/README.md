@@ -52,3 +52,4 @@ and keeps its own settings in the note's `apps/sandbox/settings.json`.
 - [PostgreSQL](https://www.postgresql.org/): [PGlite](https://pglite.dev/)
 - [MariaDB](https://mariadb.org/), the MySQL dialect: [lite4mariadb](https://lite4mariadb.shyim.de/)
 - [Redis](https://redis.io/): [Valkey in the v86 emulator](https://valkey.io/try-valkey/); [wadis](https://github.com/cah4a/wadis) is a WASM build for Node.js and Bun tests, not for a browser
+- [MongoDB](https://www.mongodb.com/), its query language: [mingo](https://github.com/kofrasa/mingo), plain JavaScript over objects in memory, no WASM
