@@ -3,6 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Node.js runs only on a cross-origin isolated page: where the server sends no such headers, a service worker of
+   ours adds them (isolation-worker.js) and the page reloads once. Only in a browser that keeps draw.io's frame
+   working on such a page (Chrome, Edge): elsewhere, and opened from a file, the page stays as it was, with no Node.js */
+async function isolation_start()
+{
+    const can_isolate = self.isSecureContext && ('serviceWorker' in navigator) && ('credentialless' in HTMLIFrameElement.prototype);
+    if (self.crossOriginIsolated || !can_isolate) {
+        return;
+    }
+    try {
+        await navigator.serviceWorker.register('isolation-worker.js');
+        await navigator.serviceWorker.ready;
+        if (sessionStorage.getItem('sandbox_isolation_reloaded')) {
+            return;
+        }
+        sessionStorage.setItem('sandbox_isolation_reloaded', '1');
+    }
+    catch {
+        return;
+    }
+    location.reload();
+}
+
+isolation_start();
+</script>
 <title>Workbench</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233b82f6'/%3E%3Cpath d='M12 11l-5 5 5 5M20 11l5 5-5 5M17.5 8l-3 16' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
@@ -195,6 +221,15 @@
   #nf-name{width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:13.5px;color:var(--fg);font-family:'JetBrains Mono',ui-monospace,monospace;outline:none}
   #nf-name:focus{border-color:var(--accent)}
   #nf-err{font-size:11.5px;color:#ef4444;margin-top:6px;min-height:14px}
+  .nf-tabs{display:flex;gap:3px;width:max-content;margin-top:12px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2)}
+  .nf-tab{padding:5px 14px;border:0;border-radius:7px;background:none;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer}
+  .nf-tab:hover{color:var(--fg)}
+  .nf-tab.sel{background:var(--panel);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  #node-pane{position:absolute;inset:0;padding:8px 0 0 10px;background:#000;overflow:hidden}
+  #node-pane .node-credit{position:absolute;right:10px;bottom:8px;z-index:5;color:#8b93a1;font-size:11px;text-decoration:none}
+  #node-pane .node-credit:hover{color:#e7eaf0;text-decoration:underline}
+  #node-term{width:100%;height:100%}
+  #node-pane .node-boot{color:#8b93a1;font:13px 'JetBrains Mono',ui-monospace,monospace}
   .modal-f{display:flex;justify-content:flex-end;gap:9px;padding:14px 20px 18px}
   .mbtn{padding:8px 16px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--panel-2);color:var(--fg);white-space:nowrap}
   .mbtn:hover{background:var(--hover)}
@@ -309,6 +344,7 @@
           <iframe class="pv" id="json-frame" title="JSON" style="display:none" sandbox="allow-scripts allow-popups"></iframe>
           <iframe class="pv" id="drawio-frame" title="diagram" style="display:none" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-popups-to-escape-sandbox"></iframe>
           <iframe class="pv" id="excalidraw-frame" title="excalidraw" style="display:none" sandbox="allow-scripts allow-same-origin allow-popups allow-downloads allow-modals"></iframe>
+          <div id="node-pane" style="display:none"><div id="node-term"></div><a class="node-credit" href="https://browserpod.io" target="_blank" rel="noopener">Powered by BrowserPod</a></div>
         </div>
         <div id="console-host"></div>
       </div>
@@ -323,12 +359,13 @@
   <div class="modal" role="dialog" aria-modal="true">
     <div class="modal-h">
       <h2>New file</h2>
-      <p>Choose a template, then name your file.</p>
+      <p id="nf-hint">Choose a template, then name your file.</p>
+      <div class="nf-tabs" id="nf-tabs" role="tablist"><button class="nf-tab" data-tab="files" role="tab">Files</button><button class="nf-tab" data-tab="node" role="tab">Node.js</button></div>
     </div>
     <div class="modal-b">
       <div class="tpl-grid" id="nf-grid"></div>
       <div class="modal-field">
-        <label for="nf-name">File name</label>
+        <label for="nf-name" id="nf-name-label">File name</label>
         <input id="nf-name" type="text" autocomplete="off" spellcheck="false">
         <div id="nf-err"></div>
       </div>
@@ -408,7 +445,7 @@
   var NOTE = null;
   try{ NOTE = new URLSearchParams(location.search).get('note') || null; }catch(e){}
   var NOTE_SETTINGS_PATH = 'apps/sandbox/settings.json';
-  var NOTE_DEFAULTS = { activeId:null, title:'Sandbox', sidebarW:248, editorPct:0.5, consoleOpen:false, consoleH:180, consoleTable:false, sidebarHidden:false, jsonMode:'tree', templates:{}, viewState:{} };
+  var NOTE_DEFAULTS = { activeId:null, title:'Sandbox', sidebarW:248, editorPct:0.5, consoleOpen:false, consoleH:180, consoleTable:false, sidebarHidden:false, jsonMode:'tree', templates:{}, viewState:{}, new_file:null };
   var noteSaveTimer = null, noteDirty = false, noteBlocked = false, noteErrShown = false;
   var noteSettingsBusy = false, noteSettingsQueued = false, noteSettingsExists = false;
   var noteSyncBusy = false, noteSyncQueued = false, noteAssetPvTimer = null;
@@ -901,7 +938,7 @@
   const WORKSPACES_LS = 'codesandbox_workspaces';
   const WORKSPACE_FIRST = 'main';
   const WORKSPACE_FIRST_KEY = LS;
-  const WORKSPACE_LAYOUT_KEYS = ['sidebarW', 'editorPct', 'consoleOpen', 'consoleH', 'consoleTable', 'sidebarHidden', 'jsonMode'];
+  const WORKSPACE_LAYOUT_KEYS = ['sidebarW', 'editorPct', 'consoleOpen', 'consoleH', 'consoleTable', 'sidebarHidden', 'jsonMode', 'new_file'];
   const WORKSPACE_CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>';
 
   let workspace_id = WORKSPACE_FIRST;
@@ -1218,6 +1255,7 @@
       {name: 'Excalidraw', url: 'https://github.com/excalidraw/excalidraw', version: '0.17.6', purpose: '.excalidraw drawings'},
       {name: 'React, ReactDOM', url: 'https://react.dev/', version: '18.x', purpose: 'Runs Excalidraw'},
       {name: 'draw.io', url: 'https://www.drawio.com/', version: 'latest', purpose: '.drawio diagrams: the editor and the viewer'},
+      {name: 'BrowserPod', url: 'https://browserpod.io', version: '4.2.0', purpose: 'Runs Node.js projects in the preview: Powered by BrowserPod'},
       {name: 'JetBrains Mono', url: 'https://www.jetbrains.com/lp/mono/', version: 'latest', purpose: 'The font of the code'},
   ];
 
@@ -1720,7 +1758,7 @@
   }
 
   function preview_stop_sync() {
-      document.getElementById('preview-stop-btn').hidden = !(php_running_here() || page_watch.hung);
+      document.getElementById('preview-stop-btn').hidden = !(php_running_here() || node_running_here() || page_watch.hung);
   }
 
   function php_preview_done() {
@@ -1744,6 +1782,9 @@
       if (php_running_here()) {
           php_preview_stop();
       }
+      else if (node_running_here()) {
+          node_preview_stop();
+      }
       else if (page_watch.hung) {
           page_stop();
       }
@@ -1755,6 +1796,244 @@
           php_runner_stop();
       }
       updatePreview();
+  }
+
+  /* ---------- Node.js: a folder with package.json is a project, and its .js files run in BrowserPod ----------
+     the pod boots once per page, at the first run, and keeps its disk between visits, node_modules with it: npm install
+     runs again only when package.json changes. One run at a time: before each program it starts, a run ends what any
+     run before it left running, so a new run, Stop or another file's preview ends a server too.
+     BrowserPod runs only on a cross-origin isolated page (isolation-worker.js) */
+  const BROWSERPOD_URL = 'https://rt.browserpod.io/4.2.0/browserpod.js';
+  const NODE_HOME = '/home/user';
+  const NODE_INSTALLED_MARK = 'node_modules/.sandbox-package.json';
+  const node_preview = {pod: null, terminal: null, quiet_terminal: null, seq: 0, busy: false, file_id: null, run_at: 0};
+
+  function node_project_of(file) {
+      if (!file || !/\.(js|mjs|cjs)$/i.test(file.name)) {
+          return null;
+      }
+      let folder_id = file.folderId || null;
+      while (folder_id) {
+          const has_package_json = S.files.some(v => (v.folderId === folder_id) && (v.name === 'package.json'));
+          if (has_package_json) {
+              return folderById(folder_id);
+          }
+          const folder = folderById(folder_id);
+          folder_id = folder ? (folder.parentId || null) : null;
+      }
+      return null;
+  }
+
+  function node_project_files(folder) {
+      const out = [];
+      for (const file of S.files) {
+          if (file._pending || file._error) {
+              continue;
+          }
+          let folder_id = file.folderId || null;
+          while (folder_id && (folder_id !== folder.id)) {
+              const parent = folderById(folder_id);
+              folder_id = parent ? (parent.parentId || null) : null;
+          }
+          if (folder_id === folder.id) {
+              out.push(file);
+          }
+      }
+      return out;
+  }
+
+  function node_running_here() {
+      const file = activeFile();
+      return node_preview.busy && !!file && (file.id === node_preview.file_id);
+  }
+
+  function node_pod() {
+      if (!node_preview.pod) {
+          node_preview.pod = node_pod_boot();
+          node_preview.pod.catch(node_pod_forget);
+      }
+      return node_preview.pod;
+  }
+
+  /* a pod that failed to boot is not kept: the next run boots one again */
+  function node_pod_forget() {
+      node_preview.pod = null;
+  }
+
+  async function node_pod_boot() {
+      const term = document.getElementById('node-term');
+      term.innerHTML = '<div class="node-boot">Starting Node.js…</div>';
+      const library = await import(BROWSERPOD_URL);
+      const network = await library.BrowserPod.createFetchNetwork({fetch: library.BrowserPod.opinionatedFetch});
+      const pod = await library.BrowserPod.boot({network, storageKey: 'sandbox'});
+      term.innerHTML = '';
+      node_preview.terminal = await pod.createDefaultTerminal(term);
+      node_preview.quiet_terminal = await pod.createCustomTerminal({onOutput: ignore});
+      return pod;
+  }
+
+  function ignore() {}
+
+  /* runs a helper program whose output nobody reads, and resolves to its exit code */
+  async function node_capture(pod, executable, args, cwd) {
+      try {
+          return await pod.run(executable, args, {terminal: node_preview.quiet_terminal, cwd: cwd || NODE_HOME});
+      }
+      catch {
+          return -1;
+      }
+  }
+
+  function node_kill(pod) {
+      return node_capture(pod, 'pkill', ['node']);
+  }
+
+  function node_note(text) {
+      node_preview.terminal.write(`\x1b[2m${text}\x1b[0m\r\n`);
+  }
+
+  function node_folder_path(folder) {
+      const names = [folder.name];
+      let parent = folderById(folder.parentId || null);
+      while (parent) {
+          names.unshift(parent.name);
+          parent = folderById(parent.parentId || null);
+      }
+      return names.join('/');
+  }
+
+  /* the folder in the pod holds the project's files as they are now, and the packages installed before */
+  async function node_project_write(pod, folder, dir) {
+      await node_capture(pod, 'bash', ['-c', 'mkdir -p "$1" && cd "$1" && find . -mindepth 1 -maxdepth 1 ! -name node_modules -exec rm -rf {} +', 'bash', dir]);
+      for (const file of node_project_files(folder)) {
+          const path = `${dir}/${zipPath(file, folder.id)}`;
+          await pod.createDirectory(path.slice(0, path.lastIndexOf('/')), {recursive: true});
+          if (file.binary) {
+              const target = await pod.createFile(path, 'binary');
+              const response = await fetch(file.content);
+              await target.write(await response.arrayBuffer());
+              await target.close();
+          }
+          else {
+              const target = await pod.createFile(path, 'utf-8');
+              await target.write(file.content || '');
+              await target.close();
+          }
+      }
+  }
+
+  async function node_project_needs_install(pod, folder, dir) {
+      const package_file = S.files.find(v => (v.folderId === folder.id) && (v.name === 'package.json'));
+      let package_json = null;
+      try {
+          package_json = JSON.parse(package_file.content || '{}');
+      }
+      catch {
+          return true;
+      }
+      if (!package_json.dependencies && !package_json.devDependencies) {
+          return false;
+      }
+      const code = await node_capture(pod, 'cmp', ['-s', 'package.json', NODE_INSTALLED_MARK], dir);
+      return code !== 0;
+  }
+
+  function node_preview_run(file, folder) {
+      if (!self.crossOriginIsolated) {
+          node_preview_halt();
+          document.getElementById('preview').srcdoc = injectConsole(php_note_doc('Node.js runs in Chrome or Edge, with the sandbox opened from its web address: here this project does not run'));
+          return;
+      }
+      showFrame('node');
+      document.getElementById('preview').srcdoc = '';
+      node_preview.seq += 1;
+      node_preview.busy = true;
+      node_preview.file_id = file.id;
+      node_preview.run_at = Date.now();
+      preview_stop_sync();
+      node_preview_job(node_preview.seq, file, folder);
+  }
+
+  async function node_preview_job(seq, file, folder) {
+      const dir = `${NODE_HOME}/${node_folder_path(folder)}`;
+      const script = zipPath(file, folder.id);
+      try {
+          const pod = await node_pod();
+          await node_kill(pod);
+          if (seq !== node_preview.seq) {
+              return;
+          }
+          node_preview.terminal.write('\x1bc');
+          await node_project_write(pod, folder, dir);
+          if (seq !== node_preview.seq) {
+              return;
+          }
+          if (await node_project_needs_install(pod, folder, dir)) {
+              await node_kill(pod);
+              if (seq !== node_preview.seq) {
+                  return;
+              }
+              node_note('$ npm install');
+              const code = await pod.run('npm', ['install', '--no-audit', '--no-fund', '--no-update-notifier'], {terminal: node_preview.terminal, cwd: dir});
+              if (seq !== node_preview.seq) {
+                  return;
+              }
+              if (code !== 0) {
+                  node_note(`npm install exited with code ${code}`);
+                  return;
+              }
+              await node_capture(pod, 'cp', ['package.json', NODE_INSTALLED_MARK], dir);
+          }
+          await node_kill(pod);
+          if (seq !== node_preview.seq) {
+              return;
+          }
+          node_note(`$ node ${script}`);
+          const code = await pod.run('node', [script], {terminal: node_preview.terminal, cwd: dir});
+          if ((seq === node_preview.seq) && (code !== 0)) {
+              node_note(`Exited with code ${code}`);
+          }
+      }
+      catch (error) {
+          if (seq !== node_preview.seq) {
+              return;
+          }
+          if (node_preview.terminal) {
+              node_note(`Node.js could not run: ${error && error.message || error}`);
+          }
+          else {
+              document.getElementById('node-term').textContent = `Node.js could not start: ${error && error.message || error}`;
+          }
+      }
+      finally {
+          if (seq === node_preview.seq) {
+              node_preview_end();
+          }
+      }
+  }
+
+  function node_preview_end() {
+      node_preview.busy = false;
+      preview_timer.loaded_at = Date.now();
+      preview_stop_sync();
+  }
+
+  /* ends the run without a word: another file's preview took its place */
+  function node_preview_halt() {
+      if (!node_preview.busy) {
+          return;
+      }
+      node_preview.seq += 1;
+      node_preview_end();
+      node_pod().then(node_kill).catch(ignore);
+  }
+
+  function node_preview_stop() {
+      const seconds = ((Date.now() - node_preview.run_at) / 1000).toFixed(1);
+      node_preview_halt();
+      if (node_preview.terminal) {
+          node_note(`Stopped after ${seconds} s. Refresh runs it again`);
+      }
   }
 
   /* ---------- a page that stops answering: an endless loop in a snippet's script ----------
@@ -1907,6 +2186,7 @@
     document.getElementById('json-frame').style.display = which==='json'?'':'none';
     document.getElementById('drawio-frame').style.display = which==='drawio'?'':'none';
     document.getElementById('excalidraw-frame').style.display = which==='excalidraw'?'':'none';
+    document.getElementById('node-pane').style.display = (which === 'node') ? '' : 'none';
   }
 
   /* persistent JSON editor frame (vanilla-jsoneditor, native light/dark themes) */
@@ -1961,6 +2241,10 @@
     clearTimeout(drawioExportTimer);
     var ifr=document.getElementById('drawio-frame');
     if(drawioInited && drawioTheme!==S.theme){ drawioInited=false; ifr.removeAttribute('src'); }
+    if (!drawioInited && self.crossOriginIsolated) {
+      /* draw.io's site sends no CORP: an isolated page loads its frame only so, without cookies (Chrome, Edge) */
+      ifr.setAttribute('credentialless', '');
+    }
     if(!drawioInited){ drawioInited=true; drawioAwaitInit=true; drawioTheme=S.theme; var dark=S.theme==='dark'; ifr.src='https://embed.diagrams.net/?embed=1&proto=json&spin=1&libraries=1&autosave=1&noSaveBtn=1&noExitBtn=1&ui='+(dark?'dark':'kennedy'); }
     else { try{ ifr.contentWindow.postMessage(JSON.stringify(drawioLoadMsg(f)), '*'); }catch(_){} }
   }
@@ -2092,6 +2376,10 @@
 
   function updatePreview(){
     var f = activeFile();
+    const node_folder = node_project_of(f);
+    if (!node_folder) {
+      node_preview_halt();
+    }
     if (page_quiet_ms() >= PAGE_QUIET_RENEW_MS) {
       preview_frames_renew();
     }
@@ -2120,6 +2408,11 @@
     if(f && isDrawio(f.name)){ ifr.srcdoc = drawioPreviewDoc(f); renderConsole(); return; }
     if(f && isExcalidraw(f.name)){ previewShownId=null; ifr.srcdoc = excalidrawDoc(f, true); renderConsole(); return; }
     if(f && f.binary){ ifr.srcdoc = injectConsole(binaryPreviewDoc(f)); renderConsole(); return; }
+    if (node_folder) {
+      node_preview_run(f, node_folder);
+      renderConsole();
+      return;
+    }
     if(f && php_file_runs(f.name)){ php_preview_run(f); renderConsole(); return; }
     var html = f ? (isMdx(f.name) ? mdxToHtml(f) : isMarkdown(f.name) ? mdToHtml(f) : isJs(f.name) ? jsPreviewDoc(f) : preview_shows_as_page(f.name) ? assetRuntime(f.content, f) : preview_plain_text_doc(f)) : '<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0;color:#9aa3b2">No snippet selected</body>';
     ifr.srcdoc = injectConsole(html);
@@ -2167,18 +2460,16 @@
     { id:'excalidraw', name:'Excalidraw', ext:'.excalidraw', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6965db" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5 14 6.5l3.5 3.5L6.5 21H3z"></path><path d="M14 6.5 16.5 4 20 7.5 17.5 10"></path></svg>',
       content:function(){ var tpl=templateForType('excalidraw'); return tpl ? tpl.content : '{\n    "type": "excalidraw",\n    "version": 2,\n    "source": "sandbox",\n    "elements": [],\n    "appState": {},\n    "files": {}\n}'; } }
   ];
-  var newFileCtx = { folderId:null, type:'html' };
+  var newFileCtx = { folderId:null, tab:'files', type:'html', example:'hello' };
 
   function newFileIn(folderId){
-    newFileCtx = { folderId:folderId||null, type:'html' };
-    renderNfGrid();
-    var def = uniqueFileName(defaultBaseForType('html') + nfTemplate('html').ext, newFileCtx.folderId);
-    newFileCtx.autoName = def;
-    document.getElementById('nf-name').value = def;
+    var last = new_file_last();
+    newFileCtx = { folderId:folderId||null, tab:last.tab, type:last.type, example:last.example };
+    document.getElementById('nf-name').value = '';
+    new_file_render();
     document.getElementById('nf-err').textContent = '';
     document.getElementById('newfile-modal').classList.add('show');
-    var inp=document.getElementById('nf-name');
-    setTimeout(function(){ inp.focus(); inp.setSelectionRange(0, splitExt(def)[0].length); }, 30);
+    setTimeout(new_file_focus_name, 30);
   }
   function nfTemplate(id){ for(var i=0;i<NF_TEMPLATES.length;i++) if(NF_TEMPLATES[i].id===id) return NF_TEMPLATES[i]; return NF_TEMPLATES[0]; }
   function renderNfGrid(){
@@ -2191,7 +2482,7 @@
     }).join('');
   }
   function nfSelectType(id){
-    newFileCtx.type=id; renderNfGrid();
+    newFileCtx.type=id; new_file_remember(); renderNfGrid();
     var inp=document.getElementById('nf-name'), v=inp.value.trim();
     if(v==='' || v===newFileCtx.autoName){
       var def = uniqueFileName(defaultBaseForType(id) + nfTemplate(id).ext, newFileCtx.folderId);
@@ -2206,6 +2497,10 @@
   }
   function closeNewFileModal(){ document.getElementById('newfile-modal').classList.remove('show'); }
   function submitNewFile(){
+    if (newFileCtx.tab === 'node') {
+      node_project_create();
+      return;
+    }
     var t=nfTemplate(newFileCtx.type), inp=document.getElementById('nf-name'), err=document.getElementById('nf-err');
     var name=(inp.value||'').trim();
     if(!name){ err.textContent='Enter a file name.'; return; }
@@ -2218,6 +2513,180 @@
     closeNewFileModal();
     save(); loadActiveIntoEditor(); updatePreview(); renderAll();
   }
+
+  /* ---------- the New file wizard's tabs: Files, and Node.js projects made from an example ----------
+     the wizard opens where it was left: its tab, its kind of file and its example, kept with the layout */
+  const NODE_EXAMPLES = [
+      {value: 'hello', label: 'Hello', folder: 'hello-node', note: 'node index.js', dependencies: null},
+      {value: 'express', label: 'Hello Express', folder: 'hello-express', note: 'npm i express', dependencies: {express: '^5.1.0'}},
+  ];
+  const NODE_HELLO_JS = 'console.log(`Hello from Node.js ${process.version}`);\n';
+  const NODE_EXPRESS_JS = `const express = require('express');
+
+const app = express();
+
+app.get('/', function (req, res) {
+    res.send('Hello from Express');
+});
+
+/* the sandbox shows the terminal, not the page: the server asks itself once and prints the answer */
+app.listen(3000, async function () {
+    console.log('Listening on port 3000');
+    const response = await fetch('http://localhost:3000/');
+    console.log(\`GET / -> \${response.status} \${await response.text()}\`);
+});
+`;
+  const NODE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5fa04e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20.5 7.3v9.4L12 21.5l-8.5-4.8V7.3z"></path><path d="M9.5 9.5v5M14.5 9.5c-1.2 0-2 .6-2 1.3s.8 1 2 1.2 2 .6 2 1.3-.8 1.2-2 1.2"></path></svg>';
+
+  function node_example(value) {
+      return NODE_EXAMPLES.find(v => v.value === value) || NODE_EXAMPLES[0];
+  }
+
+  function new_file_last() {
+      const last = S.new_file || {};
+      return {tab: (last.tab === 'node') ? 'node' : 'files', type: nfTemplate(last.type).id, example: node_example(last.example).value};
+  }
+
+  function new_file_remember() {
+      S.new_file = {tab: newFileCtx.tab, type: newFileCtx.type, example: newFileCtx.example};
+      save();
+  }
+
+  function render_node_examples() {
+      const cards = [];
+      for (const example of NODE_EXAMPLES) {
+          const selected = (example.value === newFileCtx.example) ? ' sel' : '';
+          cards.push(`<div class="tpl${selected}" data-example="${example.value}"><span class="tpl-ic">${NODE_ICON}</span><span class="tpl-tx"><span class="tpl-nm">${example.label}</span><br><span class="tpl-ex">${example.note}</span></span></div>`);
+      }
+      return cards.join('');
+  }
+
+  /* the name field gets the default of the tab and the pick, unless a name of the author's own is in it */
+  function new_file_render() {
+      const is_node = (newFileCtx.tab === 'node');
+      for (const tab of document.querySelectorAll('#nf-tabs [data-tab]')) {
+          const is_selected = (tab.getAttribute('data-tab') === newFileCtx.tab);
+          tab.classList.toggle('sel', is_selected);
+          tab.setAttribute('aria-selected', String(is_selected));
+      }
+      document.getElementById('nf-hint').textContent = is_node ? 'Choose an example, then name its folder.' : 'Choose a template, then name your file.';
+      document.getElementById('nf-name-label').textContent = is_node ? 'Folder name' : 'File name';
+      document.getElementById('nf-create').textContent = is_node ? 'Create project' : 'Create file';
+      if (is_node) {
+          document.getElementById('nf-grid').innerHTML = render_node_examples();
+      }
+      else {
+          renderNfGrid();
+      }
+      const input = document.getElementById('nf-name');
+      if ((input.value.trim() !== '') && (input.value !== newFileCtx.autoName)) {
+          return;
+      }
+      const name = is_node ? unique_folder_name(node_example(newFileCtx.example).folder, node_project_parent(newFileCtx.folderId)) : uniqueFileName(defaultBaseForType(newFileCtx.type) + nfTemplate(newFileCtx.type).ext, newFileCtx.folderId);
+      newFileCtx.autoName = name;
+      input.value = name;
+  }
+
+  function new_file_focus_name() {
+      const input = document.getElementById('nf-name');
+      const end = (newFileCtx.tab === 'node') ? input.value.length : splitExt(input.value)[0].length;
+      input.focus();
+      input.setSelectionRange(0, end);
+  }
+
+  function new_file_tab_click(event) {
+      const tab = event.target.closest('[data-tab]');
+      if (!tab) {
+          return;
+      }
+      newFileCtx.tab = tab.getAttribute('data-tab');
+      new_file_remember();
+      document.getElementById('nf-name').value = '';
+      new_file_render();
+      document.getElementById('nf-err').textContent = '';
+      new_file_focus_name();
+  }
+
+  function new_file_example_click(event) {
+      const card = event.target.closest('[data-example]');
+      if (!card) {
+          return;
+      }
+      newFileCtx.example = card.getAttribute('data-example');
+      new_file_remember();
+      new_file_render();
+      new_file_focus_name();
+  }
+
+  function unique_folder_name(name, parent_id) {
+      const taken = new Set();
+      for (const folder of S.folders) {
+          if ((folder.parentId || null) === (parent_id || null)) {
+              taken.add(folder.name.toLowerCase());
+          }
+      }
+      let out = name;
+      for (let i = 2; taken.has(out.toLowerCase()); i++) {
+          out = `${name}_${i}`;
+      }
+      return out;
+  }
+
+  /* npm wants a lowercase name with no spaces; the folder's own name is kept as it is */
+  function render_node_package_json(example, folder_name) {
+      const name = folder_name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^[._-]+/, '') || 'project';
+      const out = {name, version: '1.0.0', private: true, main: 'index.js'};
+      if (example.dependencies) {
+          out.dependencies = example.dependencies;
+      }
+      return `${JSON.stringify(out, null, 4)}\n`;
+  }
+
+  /* a project never goes inside another: opened from a project's file, the new one goes beside that project */
+  function node_project_parent(folder_id) {
+      let out = folder_id;
+      let current = folder_id;
+      while (current) {
+          const has_package_json = S.files.some(v => (v.folderId === current) && (v.name === 'package.json'));
+          const folder = folderById(current);
+          if (has_package_json && folder) {
+              out = folder.parentId || null;
+          }
+          current = folder ? (folder.parentId || null) : null;
+      }
+      return out;
+  }
+
+  function node_project_create() {
+      const example = node_example(newFileCtx.example);
+      const name = document.getElementById('nf-name').value.trim();
+      if (!name || name.includes('/')) {
+          document.getElementById('nf-err').textContent = name ? 'A folder name has no slash.' : 'Enter a folder name.';
+          return;
+      }
+      const parent_id = node_project_parent(newFileCtx.folderId || null);
+      const is_readonly = folderChainReadonly(parent_id);
+      const folder = {id: uid(), name: unique_folder_name(name, parent_id), parentId: parent_id, collapsed: false};
+      const main = {id: uid(), name: 'index.js', folderId: folder.id, content: (example.value === 'express') ? NODE_EXPRESS_JS : NODE_HELLO_JS};
+      const package_json = {id: uid(), name: 'package.json', folderId: folder.id, content: render_node_package_json(example, folder.name)};
+      for (const file of [main, package_json]) {
+          if (is_readonly) {
+              file.readonly = true;
+          }
+          S.files.push(file);
+      }
+      S.folders.push(folder);
+      if (parent_id) {
+          folderById(parent_id).collapsed = false;
+      }
+      S.activeId = main.id;
+      closeNewFileModal();
+      save();
+      loadActiveIntoEditor();
+      updatePreview();
+      renderAll();
+  }
+
   function newSubfolder(parentId){
     if(parentId){ var p=folderById(parentId); if(p) p.collapsed=false; }
     var fo={id:uid(), name:'New Folder', parentId:parentId||null, collapsed:false};
@@ -3017,7 +3486,7 @@
       if (!seconds || document.hidden || (previewShownId !== file.id)) {
           return;
       }
-      if (preview_timer.loading || php_running_here()) {
+      if (preview_timer.loading || php_running_here() || node_running_here()) {
           return;
       }
       if ((Date.now() - preview_timer.loaded_at) < (seconds * 1000)) {
@@ -3185,6 +3654,8 @@
   document.getElementById('newfolder-btn').addEventListener('click', function(){ newSubfolder(currentFolderId()); });
   document.getElementById('nf-grid').addEventListener('click', function(e){ var t=e.target.closest('[data-tpl]'); if(t) nfSelectType(t.getAttribute('data-tpl')); });
   document.getElementById('nf-cancel').addEventListener('click', closeNewFileModal);
+  document.getElementById('nf-tabs').addEventListener('click', new_file_tab_click);
+  document.getElementById('nf-grid').addEventListener('click', new_file_example_click);
   document.getElementById('nf-create').addEventListener('click', submitNewFile);
   document.getElementById('newfile-modal').addEventListener('mousedown', function(e){ if(e.target===this) closeNewFileModal(); });
   document.getElementById('nf-name').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); submitNewFile(); } else if(e.key==='Escape'){ closeNewFileModal(); } });

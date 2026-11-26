@@ -6,7 +6,10 @@ previews and fonts load from CDNs, so it needs the network.
 ## What it does
 
 - Snippets in folders, in the sidebar, with a search over their names.
-- A new file starts from a template: HTML, JSON, XML, draw.io or Excalidraw.
+- A new file starts from a template: HTML, JavaScript, PHP, Markdown, JSON, XML,
+  draw.io or Excalidraw. The wizard's Node.js tab makes a project instead, a
+  folder with package.json and index.js: Hello, or Hello Express. The wizard
+  opens where it was left, its tab and its last pick.
 - The code on the left, the result on the right, redrawn a moment after
   each change:
   - HTML runs in a sandboxed frame; its console output and uncaught errors
@@ -14,7 +17,14 @@ previews and fonts load from CDNs, so it needs the network.
   - Markdown and MDX are rendered;
   - JSON opens in a JSON editor;
   - draw.io and Excalidraw files are edited as diagrams;
-  - images, audio, video and PDF are shown.
+  - images, audio, video and PDF are shown;
+  - a .js file in a folder with package.json runs in Node.js 22, in
+    [BrowserPod](https://browserpod.io): its terminal takes the preview's place,
+    npm install runs first when package.json changed, and Stop ends a server.
+    It needs the page cross-origin isolated: in Chrome and Edge a service
+    worker of the sandbox makes it so, reloading the page once on the first
+    visit. Opened from a file, or in Firefox or Safari, the project does not
+    run.
 - Files dropped on the page become snippets. A file pasted into an HTML or
   Markdown snippet is saved next to it, and a reference to it goes in at
   the cursor.
