@@ -22,6 +22,12 @@ previews and fonts load from CDNs, so it needs the network.
   are exported as one .zip; the preview opens in a tab of its own.
 - A light and a dark theme.
 
+## Practice
+
+[src/practice.html](../src/practice.html), a page of its own beside the
+sandbox, runs tree algorithms to practise on the same engine:
+[Practice](practice.md).
+
 ## Where the snippets are kept
 
 In the browser's localStorage, on this device only. Opened with

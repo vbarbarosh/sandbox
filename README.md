@@ -21,6 +21,7 @@ xdg-open sandbox/src/index.html
 Full documentation: **[docs/README.md](docs/README.md)**
 
 * [File system API](docs/file-system-api.md) — the seven calls a source of files answers, over WebDAV
+* [Practice](docs/practice.md) — tree algorithms to practise in JavaScript and PHP, a page of its own beside the sandbox
 
 ## License
 
