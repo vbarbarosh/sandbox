@@ -49,6 +49,15 @@
   .topbar{height:46px;flex:none;display:flex;align-items:center;gap:11px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--border)}
   .logo{width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;font-family:'JetBrains Mono',monospace}
   .title-txt{font-weight:650;font-size:14px;letter-spacing:-.01em;color:var(--fg);cursor:text}
+  #ws-btn{margin-left:-7px}
+  #ws-btn[hidden]{display:none}
+  #ws-btn.on{background:var(--active);color:var(--fg)}
+  .ws-pop{min-width:220px;max-width:320px}
+  .ws-pop .ws-label{padding:6px 11px 5px;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .ws-pop .ws-item{display:flex;align-items:center;gap:8px}
+  .ws-pop .ws-item.open{font-weight:650}
+  .ws-pop .ws-check{width:14px;flex:none;display:grid;place-items:center;color:var(--accent)}
+  .ws-pop .ws-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .main{flex:1;display:flex;min-height:0;min-width:0}
 
   .sidebar{flex:none;display:flex;flex-direction:column;background:var(--panel);min-height:0;overflow:hidden}
@@ -184,6 +193,8 @@
   .mbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .mbtn.primary:hover{filter:brightness(1.07)}
   .mbtn.primary:disabled{opacity:.5;cursor:not-allowed;filter:none}
+  .mbtn.danger{background:#ef4444;border-color:#ef4444;color:#fff}
+  .mbtn.danger:hover{filter:brightness(1.07)}
 </style>
 </head>
 <body>
@@ -191,6 +202,9 @@
   <div class="topbar">
     <div class="logo">&lt;/&gt;</div>
     <div id="title-host" style="display:flex;align-items:center"></div>
+    <button class="iconbtn sm" id="ws-btn" title="Workspaces" hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
     <div style="flex:1"></div>
     <button class="iconbtn xl" id="theme-btn" title="Toggle theme"></button>
   </div>
@@ -291,6 +305,18 @@
     <div class="modal-f">
       <button class="mbtn" id="nf-cancel">Cancel</button>
       <button class="mbtn primary" id="nf-create">Create file</button>
+    </div>
+  </div>
+</div>
+<div id="ws-delete-modal" class="modal-back">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-h">
+      <h2 id="ws-delete-title"></h2>
+      <p id="ws-delete-text"></p>
+    </div>
+    <div class="modal-f">
+      <button class="mbtn" id="ws-delete-cancel">Cancel</button>
+      <button class="mbtn danger" id="ws-delete-ok">Delete workspace</button>
     </div>
   </div>
 </div>
@@ -787,12 +813,13 @@
     };
   }
   function load(){
-    try{ var s = JSON.parse(localStorage.getItem(LS)); if(s && s.files && s.files.length) return s; }catch(e){}
+    try{ var s = JSON.parse(localStorage.getItem(LS)); if(s && s.files && (s.files.length || LS !== WORKSPACE_FIRST_KEY)) return s; }catch(e){}
     return null;
   }
   function save(){
     if(NOTE){ noteScheduleSave(); return; }
-    try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){}
+    try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){ workspace_save_failed(); return; }
+    workspace_saved();
   }
 
   function initState(s){
@@ -807,6 +834,315 @@
     if(!S.templates) S.templates={};
     if(S.templateId){ var _tf=null; for(var _i=0;_i<S.files.length;_i++) if(S.files[_i].id===S.templateId){_tf=S.files[_i];break;} if(_tf) S.templates[fileType(_tf.name)]=S.templateId; delete S.templateId; save(); }
     try{ var gt = localStorage.getItem(THEME_LS); if(gt==='light' || gt==='dark') S.theme = gt; }catch(e){}
+  }
+
+  /* ---------- workspaces: a whole tree each, one open in a tab at a time ----------
+     the first keeps the key the app always had, the others are that key and @<id>; the list of them has a key of
+     its own and is read again before every change, so two tabs never write over each other's workspaces.
+     The layout belongs to the device: it stays as it is when another workspace opens */
+  const WORKSPACES_LS = 'codesandbox_workspaces';
+  const WORKSPACE_FIRST = 'main';
+  const WORKSPACE_FIRST_KEY = LS;
+  const WORKSPACE_LAYOUT_KEYS = ['sidebarW', 'editorPct', 'consoleOpen', 'consoleH', 'consoleTable', 'sidebarHidden', 'jsonMode'];
+  const WORKSPACE_CHECK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>';
+
+  let workspace_id = WORKSPACE_FIRST;
+  let workspace_named = null;
+  let workspace_save_failing = false;
+  let workspaces_menu_open = false;
+
+  function workspace_key(id) {
+      return (id === WORKSPACE_FIRST) ? WORKSPACE_FIRST_KEY : `${WORKSPACE_FIRST_KEY}@${id}`;
+  }
+
+  function workspaces_read() {
+      try {
+          const out = JSON.parse(localStorage.getItem(WORKSPACES_LS));
+          if (out && Array.isArray(out.list) && out.list.length) {
+              return out;
+          }
+      }
+      catch (error) {
+          /* no list, or one that does not read: found again by the keys */
+      }
+      return {active: WORKSPACE_FIRST, list: workspaces_found()};
+  }
+
+  /* with no list kept (the first run, or a list lost), every workspace is found by its key */
+  function workspaces_found() {
+      const out = [{id: WORKSPACE_FIRST, name: workspace_title_read(WORKSPACE_FIRST_KEY)}];
+      try {
+          for (let i = 0, end = localStorage.length; i < end; ++i) {
+              const key = localStorage.key(i);
+              if (key && key.startsWith(`${WORKSPACE_FIRST_KEY}@`)) {
+                  out.push({id: key.slice(WORKSPACE_FIRST_KEY.length + 1), name: workspace_title_read(key)});
+              }
+          }
+      }
+      catch (error) {
+          /* storage cannot be read: the first workspace alone */
+      }
+      return out;
+  }
+
+  function workspace_title_read(key) {
+      try {
+          return JSON.parse(localStorage.getItem(key)).title || 'Sandbox';
+      }
+      catch (error) {
+          return 'Sandbox';
+      }
+  }
+
+  function workspaces_write(workspaces) {
+      try {
+          localStorage.setItem(WORKSPACES_LS, JSON.stringify(workspaces));
+      }
+      catch (error) {
+          workspace_save_failed();
+      }
+  }
+
+  function workspaces_init() {
+      const workspaces = workspaces_read();
+      if (!workspaces.list.some(v => v.id === workspaces.active)) {
+          workspaces.active = workspaces.list[0].id;
+      }
+      workspace_id = workspaces.active;
+      LS = workspace_key(workspace_id);
+      document.getElementById('ws-btn').hidden = false;
+  }
+
+  /* a workspace with no state kept yet is an empty tree; the first one seeds the examples, as it always did */
+  function workspace_state_load() {
+      const state = load();
+      if (state || (workspace_id === WORKSPACE_FIRST)) {
+          return state;
+      }
+      const item = workspaces_read().list.find(v => v.id === workspace_id);
+      return workspace_empty(item ? item.name : 'Workspace');
+  }
+
+  function workspace_empty(name) {
+      return {files: [], folders: [], trash: [], search: '', activeId: null, title: name, theme: S ? S.theme : 'dark', viewState: {}, templates: {}};
+  }
+
+  function workspace_layout() {
+      const out = {};
+      for (const key of WORKSPACE_LAYOUT_KEYS) {
+          if (S[key] !== undefined) {
+              out[key] = S[key];
+          }
+      }
+      return out;
+  }
+
+  /* the open workspace's name is its title: renaming the title renames the workspace */
+  function workspace_saved() {
+      if (workspace_save_failing) {
+          workspace_save_failing = false;
+          renderFooter();
+      }
+      if (workspace_named === S.title) {
+          return;
+      }
+      const workspaces = workspaces_read();
+      const item = workspaces.list.find(v => v.id === workspace_id);
+      if (item) {
+          item.name = S.title;
+          workspaces_write(workspaces);
+      }
+      workspace_named = S.title;
+  }
+
+  function workspace_save_failed() {
+      if (!workspace_save_failing) {
+          workspace_save_failing = true;
+          showToast('Not saved: the browser’s storage is full');
+          renderFooter();
+      }
+  }
+
+  function workspace_open(id) {
+      const workspaces = workspaces_read();
+      const item = workspaces.list.find(v => v.id === id);
+      if (!item || (id === workspace_id)) {
+          return;
+      }
+      clearTimeout(pvSaveTimer);
+      clearTimeout(previewTimer);
+      captureViewState();
+      save();
+      const layout = workspace_layout();
+      workspaces.active = id;
+      workspaces_write(workspaces);
+      workspace_id = id;
+      workspace_named = null;
+      LS = workspace_key(id);
+      initState(Object.assign(workspace_state_load() || workspace_empty(item.name), layout));
+      save();
+      workspace_show();
+  }
+
+  /* everything drawn from the tree is drawn again from the one now open */
+  function workspace_show() {
+      const search = document.getElementById('search');
+      renamingId = null;
+      renamingFolderId = null;
+      headerRenaming = false;
+      titleEditing = false;
+      search.value = S.search || '';
+      document.getElementById('search-clear').hidden = !search.value;
+      loadActiveIntoEditor();
+      updatePreview();
+      renderAll();
+  }
+
+  function workspace_new() {
+      const workspaces = workspaces_read();
+      const id = uid();
+      let n = workspaces.list.length + 1;
+      while (workspaces.list.some(v => v.name === `Workspace ${n}`)) {
+          ++n;
+      }
+      workspaces.list.push({id, name: `Workspace ${n}`});
+      workspaces_write(workspaces);
+      workspace_open(id);
+      titleEditing = true;
+      renderTitle();
+  }
+
+  function workspace_delete_text(count) {
+      if (count === 0) {
+          return 'It holds no files. This cannot be undone.';
+      }
+      if (count === 1) {
+          return 'Its one file goes with it. This cannot be undone.';
+      }
+      return `Its ${count} files go with it. This cannot be undone.`;
+  }
+
+  function workspace_delete_ask() {
+      if (workspaces_read().list.length < 2) {
+          return;
+      }
+      document.getElementById('ws-delete-title').textContent = `Delete the workspace “${S.title}”?`;
+      document.getElementById('ws-delete-text').textContent = workspace_delete_text(S.files.length);
+      document.getElementById('ws-delete-modal').classList.add('show');
+      setTimeout(() => document.getElementById('ws-delete-cancel').focus(), 30);
+  }
+
+  function workspace_delete_close() {
+      document.getElementById('ws-delete-modal').classList.remove('show');
+  }
+
+  function workspace_delete_backdrop(event) {
+      if (event.target === event.currentTarget) {
+          workspace_delete_close();
+      }
+  }
+
+  /* the open workspace goes; the one above it in the list opens in its place */
+  function workspace_delete() {
+      workspace_delete_close();
+      const id = workspace_id;
+      const name = S.title;
+      const list = workspaces_read().list;
+      const index = list.findIndex(v => v.id === id);
+      const next = list[(index > 0) ? (index - 1) : 1];
+      if (!next) {
+          return;
+      }
+      workspace_open(next.id);
+      const workspaces = workspaces_read();
+      workspaces.list = workspaces.list.filter(v => v.id !== id);
+      workspaces_write(workspaces);
+      try {
+          localStorage.removeItem(workspace_key(id));
+      }
+      catch (error) {
+          /* the list no longer names it: what stays in storage is never read */
+      }
+      showToast(`Deleted “${name}”`);
+  }
+
+  function workspaces_menu_toggle() {
+      if (workspaces_menu_open) {
+          workspaces_menu_close();
+          return;
+      }
+      closeMenu();
+      workspaces_menu_open = true;
+      workspaces_menu_render();
+  }
+
+  function workspaces_menu_close() {
+      if (!workspaces_menu_open) {
+          return;
+      }
+      workspaces_menu_open = false;
+      document.getElementById('popover-host').innerHTML = '';
+      document.getElementById('ws-btn').classList.remove('on');
+  }
+
+  function workspaces_menu_render() {
+      const workspaces = workspaces_read();
+      const title = document.getElementById('title-host').getBoundingClientRect();
+      const items = workspaces.list.map(function (item) {
+          const open = (item.id === workspace_id);
+          const check = open ? WORKSPACE_CHECK_SVG : '';
+          return `<div class="item ws-item${open ? ' open' : ''}" data-wsact="open" data-wsid="${esc(item.id)}"><span class="ws-check">${check}</span><span class="ws-name">${esc(item.name)}</span></div>`;
+      });
+      items.push('<div class="hr"></div>');
+      items.push('<div class="item" data-wsact="new">New workspace</div>');
+      items.push('<div class="item" data-wsact="rename">Rename workspace</div>');
+      if (workspaces.list.length > 1) {
+          items.push('<div class="item danger" data-wsact="delete">Delete workspace</div>');
+      }
+      const position = `top:${Math.round(title.bottom + 8)}px;left:${Math.round(title.left - 4)}px`;
+      document.getElementById('popover-host').innerHTML = `<div class="backdrop" data-wsclose="1"></div><div class="popover ws-pop" style="${position}"><div class="ws-label">Workspaces</div>${items.join('')}</div>`;
+      document.getElementById('ws-btn').classList.add('on');
+  }
+
+  function workspaces_menu_click(event) {
+      if (!workspaces_menu_open) {
+          return;
+      }
+      if (event.target.closest('[data-wsclose]')) {
+          workspaces_menu_close();
+          return;
+      }
+      const row = event.target.closest('[data-wsact]');
+      if (!row) {
+          return;
+      }
+      const action = row.getAttribute('data-wsact');
+      workspaces_menu_close();
+      if (action === 'open') {
+          workspace_open(row.getAttribute('data-wsid'));
+      }
+      else if (action === 'new') {
+          workspace_new();
+      }
+      else if (action === 'rename') {
+          titleEditing = true;
+          renderTitle();
+      }
+      else if (action === 'delete') {
+          workspace_delete_ask();
+      }
+  }
+
+  function workspaces_keydown(event) {
+      if (event.key !== 'Escape') {
+          return;
+      }
+      if (workspaces_menu_open) {
+          workspaces_menu_close();
+      }
+      else if (document.getElementById('ws-delete-modal').classList.contains('show')) {
+          workspace_delete_close();
+      }
   }
 
   /* ---------- helpers ---------- */
@@ -2331,7 +2667,7 @@
       ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>'
       : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>';
   }
-  function renderFooter(){ document.getElementById('footcount').textContent = S.files.length+' snippets · '+(NOTE ? (noteBlocked ? 'note sync unavailable' : 'synced to note') : 'saved locally'); }
+  function renderFooter(){ document.getElementById('footcount').textContent = S.files.length+' snippets · '+(NOTE ? (noteBlocked ? 'note sync unavailable' : 'synced to note') : (workspace_save_failing ? 'not saved, storage full' : 'saved locally')); }
   function renderConsole(){
     var host=document.getElementById('console-host');
     if(!S.consoleOpen){ host.innerHTML=''; return; }
@@ -2511,6 +2847,12 @@
   document.getElementById('newfile-modal').addEventListener('mousedown', function(e){ if(e.target===this) closeNewFileModal(); });
   document.getElementById('nf-name').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); submitNewFile(); } else if(e.key==='Escape'){ closeNewFileModal(); } });
   document.getElementById('nf-name').addEventListener('input', function(){ document.getElementById('nf-err').textContent=''; });
+  document.getElementById('ws-btn').addEventListener('click', workspaces_menu_toggle);
+  document.getElementById('popover-host').addEventListener('click', workspaces_menu_click);
+  document.getElementById('ws-delete-cancel').addEventListener('click', workspace_delete_close);
+  document.getElementById('ws-delete-ok').addEventListener('click', workspace_delete);
+  document.getElementById('ws-delete-modal').addEventListener('mousedown', workspace_delete_backdrop);
+  document.addEventListener('keydown', workspaces_keydown);
   document.getElementById('search').addEventListener('input', function(e){ S.search=e.target.value; document.getElementById('search-clear').hidden=!e.target.value; renderTree(); });
   document.getElementById('search-clear').addEventListener('click', function(){ var s=document.getElementById('search'); s.value=''; S.search=''; this.hidden=true; s.focus(); renderTree(); });
   document.getElementById('copy-btn').addEventListener('click', copyActive);
@@ -2667,7 +3009,8 @@
   if(NOTE){
     noteBoot();
   } else {
-    initState(load());
+    workspaces_init();
+    initState(workspace_state_load());
     boot();
   }
 })();
