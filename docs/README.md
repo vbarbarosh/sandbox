@@ -45,6 +45,10 @@ and keeps its own settings in the note's `apps/sandbox/settings.json`.
 - [Php-Wasm: PHP in Browser, powered by WebAssembly](https://php-wasm.seanmorr.is/demos.html)
 - [WordPress Playground](https://playground.wordpress.net/)
 - https://3v4l.org/
+- [v86: x86 PC emulator and x86-to-wasm JIT, running in the browser](https://github.com/copy/v86)
+- [Browser Shell: a Linux VM mounting a JS filesystem with a Service Worker web server](https://humphd.github.io/browser-shell/)
+- [browser-vm: the small Linux of Browser Shell, a Buildroot image for v86](https://github.com/humphd/browser-vm)
+- [BrowserVM: browserscale's script runtime inside its cloud browsers, for automation](https://browserscale.cloud/browservm)
 
 ## Databases in a browser
 
