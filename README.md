@@ -20,6 +20,8 @@ xdg-open sandbox/src/index.html
 
 Full documentation: **[docs/README.md](docs/README.md)**
 
+* [File system API](docs/file-system-api.md) — the seven calls a source of files answers, over WebDAV
+
 ## License
 
 [MIT](LICENSE)
