@@ -39,3 +39,10 @@ and keeps its own settings in the note's `apps/sandbox/settings.json`.
 - [Php-Wasm: PHP in Browser, powered by WebAssembly](https://php-wasm.seanmorr.is/demos.html)
 - [WordPress Playground](https://playground.wordpress.net/)
 - https://3v4l.org/
+
+## Databases in a browser
+
+- [SQLite](https://sqlite.org/): [its official WASM build](https://sqlite.org/wasm), or [sql.js](https://sql.js.org/)
+- [PostgreSQL](https://www.postgresql.org/): [PGlite](https://pglite.dev/)
+- [MariaDB](https://mariadb.org/), the MySQL dialect: [lite4mariadb](https://lite4mariadb.shyim.de/)
+- [Redis](https://redis.io/): [Valkey in the v86 emulator](https://valkey.io/try-valkey/); [wadis](https://github.com/cah4a/wadis) is a WASM build for Node.js and Bun tests, not for a browser
