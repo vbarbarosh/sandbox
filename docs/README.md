@@ -43,7 +43,7 @@ previews and fonts load from CDNs, so it needs the network.
 ## Practice
 
 [src/practice.html](../src/practice.html), a page of its own beside the
-sandbox, runs tree algorithms to practise on the same engine:
+sandbox, runs tree and array algorithms to practise on the same engine:
 [Practice](practice.md).
 
 ## Where the snippets are kept

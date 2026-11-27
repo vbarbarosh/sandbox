@@ -1,15 +1,19 @@
 /* The topics of practice.html, from Tree Gym and Tree Lab: a topic is one function to write.
 
    Each case holds only the args; its expected value comes from the reference solution, `solution`, run on
-   the same args, so a new case is its args alone. Two markers stand for args data cannot hold:
-   {$fn: "<source>"} is a function, {$make: "chain", size} a chain too deep to write down.
+   the same args, so a new case is its args alone. Four markers stand for args data cannot hold:
+   {$fn: "<source>"} is a function, {$make: "chain", size} a chain too deep to write down,
+   {$make: "numbers", size, max, seed} an array too long to write down: size whole numbers from 0 to max - 1,
+   the same ones for the same seed, and {$make: "table", size, seed, version} a table of size rows
+   {id, name, price}, version "before", or "after": the same table with rows gone, changed and new.
    A case of kind "probe" calls the function once on the node `start` of `tree`, its nodes linked to
    their parents; "steps" calls it again and again from that node; "lazy" checks a generator stays lazy.
    `observe` says what of a call is compared: "result" the value returned, "node" the uid of the node
    returned, "edit" the value returned and the tree after the call, "iterable" the uids yielded,
    "parents" where each parent link points, "geometry" the x and y of each node. `check` adds a rule a
-   result equal to the expected one can still break; `is_pure` says the args must stay untouched. */
-const PRACTICE_GROUPS = ['Fundamentals', 'Walks', 'Search', 'Transformations', 'Editing in place', 'Tree and flat data', 'Parent links', 'Binary trees', 'Binary traversal', 'File systems', 'AVL trees', 'Red-black trees', 'B-trees'];
+   result equal to the expected one can still break; `is_pure` says the args must stay untouched. `time_limit_ms`,
+   when a topic has it, is how long the attempt on one case may run, once its reference has, in place of 4 s. */
+const PRACTICE_GROUPS = ['Fundamentals', 'Walks', 'Search', 'Transformations', 'Editing in place', 'Tree and flat data', 'Parent links', 'Binary trees', 'Binary traversal', 'File systems', 'AVL trees', 'Red-black trees', 'B-trees', 'Arrays'];
 
 const PRACTICE_TOPICS = [
     {
@@ -5926,6 +5930,115 @@ function btree_insert_split_child($parent, $i)
             {label: 'No split needed', args: [{keys: [20, 40], children: [{keys: [5, 10], children: []}, {keys: [24, 32], children: []}, {keys: [50], children: []}]}, 25]},
             {label: 'Duplicate does not force a split', args: [{keys: [10, 20, 30], children: []}, 20]},
             {label: 'First key', args: [null, 0]},
+        ],
+    },
+    {
+        uid: 'items-missing-from-another-array',
+        group: 'Arrays',
+        level: 2,
+        title: 'In one array, not in the other',
+        fn: 'items_missing_from',
+        params: ['a', 'b'],
+        signature: 'function items_missing_from(a, b)',
+        brief: 'Return the items of `a` that do not occur in `b`. The largest test holds 10,000,000 numbers in each array.',
+        rules: ['Keep the order of `a`. An item that occurs in `a` several times and never in `b` comes out every time.', 'Items are compared with ===: the number 1 and the string \'1\' are different items.', 'Leave both arrays as they are.'],
+        input: {text: 'Two arrays of numbers or strings; either may be empty. The largest test holds 10,000,000 whole numbers in each, from 0 to 9,999,999, at random.', example: {a: [5, 1, 4, 1, 3], b: [4, 1, 9]}},
+        explanation: {approach: 'Looking through all of `b` for each item of `a` costs n × m comparisons: for two arrays of 10 million, 10¹⁴, more than a day at a billion a second. Put the items of `b` into a Set once, m steps; then each item of `a` is one lookup, n steps: 20 million steps in all, a second or two.', example: 'a = [5, 1, 4, 1, 3] and b = [4, 1, 9]: the Set holds 4, 1 and 9; of the items of a, 5 and 3 are not in it, so the result is [5, 3].'},
+        hints: ['How many comparisons does `a.filter(v => !b.includes(v))` make when each array holds 10 million items?', 'A Set answers "is this value in it?" at once, however many values it holds.', 'Build the Set from `b` once, before the loop over `a`, not inside it.'],
+        observe: 'result',
+        check: null,
+        is_pure: true,
+        time_limit_ms: 20000,
+        from: [],
+        solution: `function items_missing_from(a, b)
+{
+    const items_in_b = new Set(b);
+    return a.filter(v => !items_in_b.has(v));
+}`,
+        solution_php: null,
+        php_note: 'its tests hold up to 10 million numbers in each array, made in JavaScript',
+        cases: [
+            {label: 'The example', args: [[5, 1, 4, 1, 3], [4, 1, 9]]},
+            {label: 'Nothing in common', args: [[1, 2, 3], [4, 5, 6]]},
+            {label: 'Every item of a is in b', args: [[2, 7, 2], [7, 2]]},
+            {label: 'Empty a', args: [[], [1, 2]]},
+            {label: 'Empty b', args: [[3, 1, 3], []]},
+            {label: 'Both empty', args: [[], []]},
+            {label: 'Repeats in a stay', args: [[8, 8, 1, 8], [1]]},
+            {label: 'Repeats in b', args: [[1, 2, 3], [2, 2, 2]]},
+            {label: 'Negative numbers and zero', args: [[-3, 0, 2, -1], [0, -1, 5]]},
+            {label: 'Words', args: [['pear', 'apple', 'fig', 'plum'], ['fig', 'kiwi', 'apple']]},
+            {label: 'A number and the same digits as text', args: [[1, '1', 2, '2'], ['1', 2]]},
+            {label: '1,000 in each', args: [{$make: 'numbers', size: 1000, max: 1000, seed: 1}, {$make: 'numbers', size: 1000, max: 1000, seed: 2}]},
+            {label: '100,000 in each', args: [{$make: 'numbers', size: 100000, max: 100000, seed: 3}, {$make: 'numbers', size: 100000, max: 100000, seed: 4}]},
+            {label: '1,000,000 in each', args: [{$make: 'numbers', size: 1000000, max: 1000000, seed: 5}, {$make: 'numbers', size: 1000000, max: 1000000, seed: 6}]},
+            {label: '10,000,000 in each', args: [{$make: 'numbers', size: 10000000, max: 10000000, seed: 7}, {$make: 'numbers', size: 10000000, max: 10000000, seed: 8}]},
+        ],
+    },
+    {
+        uid: 'rows-added-removed-changed',
+        group: 'Arrays',
+        level: 2,
+        title: 'Added, removed and changed rows',
+        fn: 'rows_diff',
+        params: ['before', 'after'],
+        signature: 'function rows_diff(before, after)',
+        brief: 'Two versions of one table, `before` and `after`, each an array of rows with an `id`. Return `{added, removed, changed}`: the rows whose id only `after` has, the rows whose id only `before` has, and the rows of `after` that differ from the row of the same id in `before`. The largest test holds 1,000,000 rows in each.',
+        rules: ['Rows are matched by `id`: each id occurs once in each array, and ids are compared with ===.', 'A row in both is changed when a field has another value, or is in one of its two versions only. Values are compared with ===: 5 and \'5\' differ. The order of the fields does not count.', '`added` and `changed` hold the rows of `after`, in the order of `after`; `removed` holds the rows of `before`, in the order of `before`.', 'Leave both arrays as they are.'],
+        input: {text: 'Two arrays of rows, plain objects whose fields hold numbers, text, true, false or null; either array may be empty. The largest test holds 1,000,000 rows {id, name, price} in each, in a random order.', example: {before: [{id: 1, name: 'pear', price: 120}, {id: 2, name: 'fig', price: 300}, {id: 3, name: 'plum', price: 90}], after: [{id: 3, name: 'plum', price: 95}, {id: 1, name: 'pear', price: 120}, {id: 4, name: 'kiwi', price: 210}]}},
+        explanation: {approach: 'The standard diff of two versions of a table by its key, what a sync between two databases makes: the added rows become INSERTs, the removed ones DELETEs, the changed ones UPDATEs; in SQL it is a FULL OUTER JOIN on id. Looking for each row of `after` in `before` with `find` costs n × m steps: for a million rows in each, 10¹², hours. Put the rows of `before` into a Map by id once; then one pass over `after` finds the old version of each row at once, so each row is new, changed or the same, and the ids seen there leave in `before` the removed ones: about 3 million steps in all.', example: 'The Map holds rows 1, 2 and 3 of before. Row 3 of after has the price 95 where before had 90: changed. Row 1 is the same. Row 4 is not in the Map: added. Row 2 never comes up in after: removed. The result is {added: [row 4], removed: [row 2], changed: [row 3 with 95]}.'},
+        hints: ['How many steps does `before.find(v => v.id === row.id)` take for each of a million rows of `after`?', 'A Map from id to row answers "which row of before has this id?" at once.', 'The same fields in another order make the same row, so JSON.stringify will not do: compare field by field, the fields of both versions.'],
+        observe: 'result',
+        check: null,
+        is_pure: true,
+        time_limit_ms: 20000,
+        from: [],
+        solution: `function rows_diff(before, after)
+{
+    const rows_before = new Map(before.map(row => [row.id, row]));
+    const ids_after = new Set();
+    const added = [];
+    const changed = [];
+    for (const row of after) {
+        ids_after.add(row.id);
+        const row_before = rows_before.get(row.id);
+        if (row_before === undefined) {
+            added.push(row);
+        }
+        else if (!is_same_row(row_before, row)) {
+            changed.push(row);
+        }
+    }
+    const removed = before.filter(row => !ids_after.has(row.id));
+    return {added, removed, changed};
+}
+
+function is_same_row(a, b)
+{
+    const keys = Object.keys(a);
+    return (keys.length === Object.keys(b).length) && keys.every(key => Object.hasOwn(b, key) && (a[key] === b[key]));
+}`,
+        solution_php: null,
+        php_note: 'its tests hold up to a million rows in each table, made in JavaScript',
+        cases: [
+            {label: 'The example', args: [[{id: 1, name: 'pear', price: 120}, {id: 2, name: 'fig', price: 300}, {id: 3, name: 'plum', price: 90}], [{id: 3, name: 'plum', price: 95}, {id: 1, name: 'pear', price: 120}, {id: 4, name: 'kiwi', price: 210}]]},
+            {label: 'The same rows in another order', args: [[{id: 1, name: 'pear'}, {id: 2, name: 'fig'}, {id: 3, name: 'plum'}], [{id: 3, name: 'plum'}, {id: 1, name: 'pear'}, {id: 2, name: 'fig'}]]},
+            {label: 'The same fields in another order', args: [[{id: 1, name: 'pear', price: 120}], [{price: 120, id: 1, name: 'pear'}]]},
+            {label: 'Only added', args: [[{id: 1, title: 'Read'}], [{id: 1, title: 'Read'}, {id: 2, title: 'Write'}, {id: 3, title: 'Send'}]]},
+            {label: 'Only removed', args: [[{id: 1, title: 'Read'}, {id: 2, title: 'Write'}, {id: 3, title: 'Send'}], [{id: 2, title: 'Write'}]]},
+            {label: 'Every row changed', args: [[{id: 1, done: false}, {id: 2, done: false}], [{id: 2, done: true}, {id: 1, done: true}]]},
+            {label: 'Empty before', args: [[], [{id: 5, name: 'Ann'}, {id: 6, name: 'Bob'}]]},
+            {label: 'Empty after', args: [[{id: 5, name: 'Ann'}, {id: 6, name: 'Bob'}], []]},
+            {label: 'Both empty', args: [[], []]},
+            {label: 'Matched by id, not by content', args: [[{id: 1, name: 'pear'}], [{id: 2, name: 'pear'}]]},
+            {label: 'A value set to null', args: [[{id: 7, email: 'ann@example.com'}], [{id: 7, email: null}]]},
+            {label: 'A field only after has', args: [[{id: 5, name: 'Ann'}], [{id: 5, name: 'Ann', phone: '555-0100'}]]},
+            {label: 'A field only before has', args: [[{id: 5, name: 'Ann', phone: '555-0100'}], [{id: 5, name: 'Ann'}]]},
+            {label: 'The number 5 and the text \'5\'', args: [[{id: 1, qty: 5}, {id: 2, qty: '5'}], [{id: 1, qty: '5'}, {id: 2, qty: '5'}]]},
+            {label: 'Text ids', args: [[{id: 'u-17', name: 'Ann'}, {id: 'u-4', name: 'Bob'}], [{id: 'u-4', name: 'Bob'}, {id: 'u-9', name: 'Eve'}]]},
+            {label: '1,000 rows in each', args: [{$make: 'table', size: 1000, seed: 11, version: 'before'}, {$make: 'table', size: 1000, seed: 11, version: 'after'}]},
+            {label: '100,000 rows in each', args: [{$make: 'table', size: 100000, seed: 12, version: 'before'}, {$make: 'table', size: 100000, seed: 12, version: 'after'}]},
+            {label: '1,000,000 rows in each', args: [{$make: 'table', size: 1000000, seed: 13, version: 'before'}, {$make: 'table', size: 1000000, seed: 13, version: 'after'}]},
         ],
     },
 ];

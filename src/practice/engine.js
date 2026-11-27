@@ -6,6 +6,8 @@
    A message in: {run_id, source, reference, fn, observe, check, is_pure, cases, is_reference_only}.
    For each case a message out, in order: {run_id, index, status, expected, actual, args, message, logs};
    status is "pass", "fail" or "error", or "expected" when only the reference runs. Then {run_id, done: true}.
+   Between the reference and the attempt of a case, {run_id, is_reference_done: true}: the page's time limit
+   starts again there, so it is the attempt's alone.
    The values going out are plain copies, bounded in size; the comparison is made here, on the whole values. */
 function practice_worker_main()
 {
@@ -74,6 +76,7 @@ function practice_worker_main()
         if (job.is_reference_only) {
             return {status: 'expected', expected: plain_from_value(expected), args: shown_args_from_item(item), logs: []};
         }
+        self.postMessage({run_id: job.run_id, is_reference_done: true});
         logs = [];
         let attempt = null;
         try {
@@ -156,8 +159,10 @@ function practice_worker_main()
         return false;
     }
 
-    /* the args of a case are data; two markers stand for what data cannot hold:
-       {$fn: "<source>"} is a function, {$make: "chain", size} a chain too deep to write down */
+    /* the args of a case are data; four markers stand for what data cannot hold:
+       {$fn: "<source>"} is a function, {$make: "chain", size} a chain too deep to write down,
+       {$make: "numbers", size, max, seed} an array too long to write down, and
+       {$make: "table", size, seed, version} a table of rows too long to write down, "before" or "after" */
     function args_make(args) {
         const out = [];
         for (const arg of structuredClone(args)) {
@@ -175,6 +180,12 @@ function practice_worker_main()
         }
         if (arg.$make === 'chain') {
             return tree_make_deep_chain(arg.size);
+        }
+        if (arg.$make === 'numbers') {
+            return numbers_from_seed(arg.seed, arg.size, arg.max);
+        }
+        if (arg.$make === 'table') {
+            return table_from_seed(arg.seed, arg.size, arg.version);
         }
         return arg;
     }
@@ -311,6 +322,62 @@ function practice_worker_main()
         return nodes[0];
     }
 
+    /* the same seed always gives the same numbers: `size` whole numbers from 0 to max - 1 */
+    function numbers_from_seed(seed, size, max) {
+        const rand = rand_make(seed);
+        const out = [];
+        for (let i = 0; i < size; ++i) {
+            out.push(Math.floor(rand()*max));
+        }
+        return out;
+    }
+
+    /* the same seed always gives the same table: `size` rows {id, name, price} in a random order, ids from 1 to
+       size; version "after" is that table a while later: one row in 50 gone, one in 50 changed, size/50 new */
+    function table_from_seed(seed, size, version) {
+        const rand = rand_make(seed);
+        const rows = [];
+        for (let id = 1; id <= size; ++id) {
+            rows.push({id, name: `item ${id}`, price: Math.floor(rand()*10000)});
+        }
+        return items_shuffle((version === 'after') ? table_edit(rows, rand) : rows, rand);
+    }
+
+    function table_edit(rows, rand) {
+        const out = [];
+        for (const row of rows) {
+            const roll = rand();
+            if (roll < 0.02) {
+                continue;
+            }
+            if (roll < 0.03) {
+                out.push({id: row.id, name: `${row.name}, renamed`, price: row.price});
+            }
+            else if (roll < 0.04) {
+                out.push({id: row.id, name: row.name, price: row.price + 1 + Math.floor(rand()*100)});
+            }
+            else {
+                out.push(row);
+            }
+        }
+        for (let i = 1, end = Math.floor(rows.length/50); i <= end; ++i) {
+            const id = rows.length + i;
+            out.push({id, name: `item ${id}`, price: Math.floor(rand()*10000)});
+        }
+        return out;
+    }
+
+    /* Fisher-Yates, in place */
+    function items_shuffle(items, rand) {
+        for (let i = items.length - 1; i > 0; --i) {
+            const j = Math.floor(rand()*(i + 1));
+            const item = items[i];
+            items[i] = items[j];
+            items[j] = item;
+        }
+        return items;
+    }
+
     function rand_make(seed) {
         let current = seed | 0;
         return function () {
@@ -392,6 +459,13 @@ function practice_worker_main()
             if (seen.get(left) === right) {
                 continue;
             }
+            if (Array.isArray(left) && Array.isArray(right)) {
+                if (!is_array_items_equal(left, right, pairs)) {
+                    return false;
+                }
+                seen.set(left, right);
+                continue;
+            }
             const keys = Object.keys(left);
             if ((Array.isArray(left) !== Array.isArray(right)) || (keys.length !== Object.keys(right).length)) {
                 return false;
@@ -402,6 +476,29 @@ function practice_worker_main()
                     return false;
                 }
                 pairs.push([left[key], right[key]]);
+            }
+        }
+        return true;
+    }
+
+    /* index by index, the scalars compared at once and the objects left in `pairs`: one case compares arrays of
+       10,000,000 numbers, where a key and a pair for each would take seconds and gigabytes; a hole counts as undefined */
+    function is_array_items_equal(left, right, pairs) {
+        if (left.length !== right.length) {
+            return false;
+        }
+        for (let i = 0, end = left.length; i < end; ++i) {
+            const item_left = left[i];
+            const item_right = right[i];
+            if (item_left === item_right) {
+                continue;
+            }
+            if (is_object(item_left) && is_object(item_right)) {
+                pairs.push([item_left, item_right]);
+                continue;
+            }
+            if (!is_scalar_equal(item_left, item_right)) {
+                return false;
             }
         }
         return true;

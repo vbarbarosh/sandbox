@@ -943,7 +943,7 @@
     <div class="brand">
         <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><g stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round"><path d="M16 9v5M16 14l-6 6M16 14l6 6"/></g><g fill="var(--accent-ink)"><circle cx="16" cy="8" r="3"/><circle cx="9" cy="22" r="3"/><circle cx="23" cy="22" r="3"/></g></svg>
         <span class="brand-name">Practice</span>
-        <span class="brand-note">trees, on the sandbox's engine</span>
+        <span class="brand-note">trees and arrays, on the sandbox's engine</span>
     </div>
     <div class="tabs" role="tablist">
         <button class="tab is-on" id="tab-topics" role="tab">Topics</button>
@@ -1357,7 +1357,7 @@ function lang_switch(lang)
 function expected_fill(topic)
 {
     const run_id = ++run_seq;
-    worker_run({run_id, source: '', reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases, is_reference_only: true}, function (message) {
+    worker_run({run_id, source: '', reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases, time_limit_ms: time_limit_of(topic), is_reference_only: true}, function (message) {
         if ((run_id !== run_seq) || (state.topic_uid !== topic.uid)) {
             return;
         }
@@ -1395,7 +1395,7 @@ function click_run()
         return;
     }
     const run_id = ++run_seq;
-    const job = {run_id, source: code, reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases};
+    const job = {run_id, source: code, reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases, time_limit_ms: time_limit_of(topic)};
     worker_run(job, function (message) {
         if (run_id !== run_seq) {
             return;
@@ -1457,6 +1457,12 @@ function run_finish(topic, lang, code)
     }
 }
 
+/* how long the attempt on one case may run, once its reference has: 4 s, or what the topic sets for its big data */
+function time_limit_of(topic)
+{
+    return topic.time_limit_ms || CASE_SILENCE_MS;
+}
+
 /* runs a job in a Worker of its own; a case silent for too long ends the Worker, and the run with it */
 function worker_run(job, on_case)
 {
@@ -1478,6 +1484,10 @@ function worker_run(job, on_case)
                 finish(null);
                 return;
             }
+            if (message.is_reference_done) {
+                silence_wait();
+                return;
+            }
             next_index = message.index + 1;
             on_case(message);
             silence_wait();
@@ -1490,7 +1500,7 @@ function worker_run(job, on_case)
         worker.postMessage(job);
         function silence_wait() {
             clearTimeout(silence_timer);
-            silence_timer = setTimeout(() => finish(`Time limit exceeded: no answer in ${CASE_SILENCE_MS/1000} s. An endless loop?`), CASE_SILENCE_MS);
+            silence_timer = setTimeout(() => finish(`Time limit exceeded: no answer in ${job.time_limit_ms/1000} s. An endless loop, or too many steps?`), job.time_limit_ms);
         }
         function finish(error_message) {
             clearTimeout(silence_timer);
@@ -1513,7 +1523,7 @@ async function php_tests_run(topic, code)
 {
     const run_id = ++run_seq;
     const prepared = [];
-    await worker_run({run_id, source: '', reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases, is_reference_only: true}, function (message) {
+    await worker_run({run_id, source: '', reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases, time_limit_ms: time_limit_of(topic), is_reference_only: true}, function (message) {
         prepared[message.index] = message;
     });
     if (run_id !== run_seq) {
@@ -2234,8 +2244,10 @@ function refresh_topic()
     const tags = [
         `<span>${esc(topic.group)}</span>`,
         `<span class="tag">${LEVEL_NAMES[topic.level]}</span>`,
-        `<span class="tag">from ${esc(topic.from.join(' and '))}</span>`,
     ];
+    if (topic.from.length) {
+        tags.push(`<span class="tag">from ${esc(topic.from.join(' and '))}</span>`);
+    }
     if (solved_langs.length) {
         tags.push(`<span class="tag tag-ok">✓ solved in ${solved_langs.map(v => LANG_NAMES[v]).join(' and ')}</span>`);
     }
@@ -2612,6 +2624,15 @@ function format_arg(arg)
     }
     if (is_object(arg) && (arg.$make === 'chain')) {
         return `a chain ${arg.size.toLocaleString('en-US')} nodes deep`;
+    }
+    if (is_object(arg) && (arg.$make === 'numbers')) {
+        return `${arg.size.toLocaleString('en-US')} whole numbers at random, from 0 to ${(arg.max - 1).toLocaleString('en-US')} (seed ${arg.seed})`;
+    }
+    if (is_object(arg) && (arg.$make === 'table') && (arg.version === 'after')) {
+        return `the same table a while later: about 2% of its rows gone, 2% changed and 2% new (seed ${arg.seed})`;
+    }
+    if (is_object(arg) && (arg.$make === 'table')) {
+        return `${arg.size.toLocaleString('en-US')} rows {id, name, price}, ids 1 to ${arg.size.toLocaleString('en-US')} in a random order (seed ${arg.seed})`;
     }
     return format_value_lines(arg, 0);
 }

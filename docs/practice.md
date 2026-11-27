@@ -1,8 +1,8 @@
 # Practice
 
 [src/practice.html](../src/practice.html) is a page of its own beside the
-sandbox: tree algorithms to practise, one function at a time, in
-JavaScript or PHP. It runs code the way the sandbox does: JavaScript in a
+sandbox: tree and array algorithms to practise, one function at a time,
+in JavaScript or PHP. It runs code the way the sandbox does: JavaScript in a
 Worker, PHP in php-wasm, through the sandbox's own runner.
 
 ## A topic
@@ -13,8 +13,21 @@ implementation in JavaScript, and in PHP where the input is plain data.
 Its tests draw the tree each one starts from, and show the expected value
 beside the one returned. A topic is solved once every test passes.
 
-The topics came from two earlier pages, Tree Gym and Tree Lab: 91 of them,
-in 13 groups, the tasks both pages had merged into one.
+The tree topics came from two earlier pages, Tree Gym and Tree Lab: 91 of
+them, in 13 groups, the tasks both pages had merged into one. The group
+Arrays holds two topics on big data. The items of one array missing from
+another, with up to 10,000,000 numbers in each: looking through the
+second array for every item of the first runs out of time there, a Set
+does not. The rows added, removed and changed between two versions of a
+table, the diff a sync between two databases makes, with up to 1,000,000
+rows in each: looking up each row with `find` runs out of time at
+100,000, a Map by id does not. Their time limit is 20 s, where the others
+have 4 s, and they are JavaScript only: their tests are made in
+JavaScript, and the browser's PHP took 11 s over two arrays of 10 million
+numbers, near its 15 s limit.
+
+A case's time limit counts its attempt alone: it starts again once the
+reference solution has given the expected value.
 
 ## Files
 
