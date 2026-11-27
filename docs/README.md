@@ -10,6 +10,14 @@ previews and fonts load from CDNs, so it needs the network.
   draw.io or Excalidraw. The wizard's Node.js tab makes a project instead, a
   folder with package.json and index.js: Hello, or Hello Express. The wizard
   opens where it was left, its tab and its last pick.
+- Four Node.js examples come with a database, running in the program itself,
+  in memory: SQLite (Node's own node:sqlite), PostgreSQL (PGlite), Valkey, the
+  open fork of Redis (valkey-wasm, through ioredis), and NeDB, documents
+  queried as in MongoDB. PostgreSQL and Valkey are built to WebAssembly and
+  need what BrowserPod's WebAssembly lacks, Global and Tag among them: their
+  project's wasm-fill.js takes it from the browser's own. MySQL through
+  MariaDB (lite4mariadb) does not run there: it starts 16 threads sharing one
+  WebAssembly memory, and in BrowserPod it never finishes starting.
 - The code on the left, the result on the right, redrawn a moment after
   each change:
   - HTML runs in a sandboxed frame; its console output and uncaught errors

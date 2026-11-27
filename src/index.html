@@ -2519,6 +2519,10 @@ isolation_start();
   const NODE_EXAMPLES = [
       {value: 'hello', label: 'Hello', folder: 'hello-node', note: 'node index.js', dependencies: null},
       {value: 'express', label: 'Hello Express', folder: 'hello-express', note: 'npm i express', dependencies: {express: '^5.1.0'}},
+      {value: 'sqlite', label: 'SQLite', folder: 'hello-sqlite', note: 'node:sqlite', dependencies: null, is_database: true, is_module: true},
+      {value: 'postgres', label: 'PostgreSQL', folder: 'hello-postgres', note: 'PGlite', dependencies: {'@electric-sql/pglite': '^0.6.0'}, is_database: true, is_module: true},
+      {value: 'valkey', label: 'Redis', folder: 'hello-valkey', note: 'Valkey', dependencies: {'valkey-wasm': '^0.1.1', ioredis: '^6.1.0'}, is_database: true, is_module: true},
+      {value: 'nedb', label: 'MongoDB', folder: 'hello-nedb', note: 'NeDB', dependencies: {'@seald-io/nedb': '^4.1.2'}, is_database: true, is_module: true},
   ];
   const NODE_HELLO_JS = 'console.log(`Hello from Node.js ${process.version}`);\n';
   const NODE_EXPRESS_JS = `const express = require('express');
@@ -2536,10 +2540,136 @@ app.listen(3000, async function () {
     console.log(\`GET / -> \${response.status} \${await response.text()}\`);
 });
 `;
-  const NODE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5fa04e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20.5 7.3v9.4L12 21.5l-8.5-4.8V7.3z"></path><path d="M9.5 9.5v5M14.5 9.5c-1.2 0-2 .6-2 1.3s.8 1 2 1.2 2 .6 2 1.3-.8 1.2-2 1.2"></path></svg>';
+  const NODE_SQLITE_JS = `import {DatabaseSync} from 'node:sqlite';
+
+const db = new DatabaseSync(':memory:');
+db.exec('CREATE TABLE notes (id INTEGER PRIMARY KEY, text TEXT NOT NULL, stars INTEGER NOT NULL)');
+
+const insert = db.prepare('INSERT INTO notes (text, stars) VALUES (?, ?)');
+insert.run('Hello from SQLite', 5);
+insert.run('A database in the page', 4);
+insert.run('Skip me', 1);
+
+const notes = db.prepare('SELECT id, text, stars FROM notes WHERE stars >= ? ORDER BY stars DESC').all(3);
+console.table(notes);
+console.log(\`SQLite \${db.prepare('SELECT sqlite_version() AS version').get().version}\`);
+`;
+  const NODE_POSTGRES_JS = `import './wasm-fill.js';
+import {PGlite} from '@electric-sql/pglite';
+
+/* PostgreSQL itself, built to WebAssembly, runs in this program: no server to connect to */
+const db = new PGlite();
+await db.exec('CREATE TABLE notes (id SERIAL PRIMARY KEY, text TEXT NOT NULL, stars INTEGER NOT NULL)');
+
+const insert = 'INSERT INTO notes (text, stars) VALUES ($1, $2)';
+await db.query(insert, ['Hello from PostgreSQL', 5]);
+await db.query(insert, ['A database in the page', 4]);
+await db.query(insert, ['Skip me', 1]);
+
+const notes = await db.query('SELECT id, text, stars FROM notes WHERE stars >= $1 ORDER BY stars DESC', [3]);
+console.table(notes.rows);
+const version = await db.query('SELECT version()');
+console.log(version.rows[0].version);
+await db.close();
+`;
+  const NODE_VALKEY_JS = `import './wasm-fill.js';
+import Redis from 'ioredis';
+import {ValkeyServer} from 'valkey-wasm';
+
+/* Valkey, the open fork of Redis, built to WebAssembly, listens on its port in this program; ioredis talks to it
+   as to any Redis */
+const server = await new ValkeyServer({port: 6379}).start();
+const redis = new Redis(6379, '127.0.0.1');
+
+await redis.set('greeting', 'Hello from Valkey');
+await redis.incr('visits');
+await redis.zadd('notes', 5, 'Hello from Valkey', 4, 'A database in the page', 1, 'Skip me');
+
+console.log(await redis.get('greeting'));
+console.log('Visits:', await redis.get('visits'));
+console.log('Three stars and up:', await redis.zrevrangebyscore('notes', '+inf', 3));
+const info = await redis.info('server');
+console.log(info.match(/valkey_version:\\S+/)[0]);
+
+await redis.quit();
+await server.stop();
+`;
+  const NODE_NEDB_JS = `import Datastore from '@seald-io/nedb';
+
+/* NeDB keeps documents and queries them the way MongoDB does: the same insert, find and operators, in memory */
+const notes = new Datastore();
+await notes.insertAsync([
+    {text: 'Hello from NeDB', stars: 5},
+    {text: 'A database in the page', stars: 4},
+    {text: 'Skip me', stars: 1},
+]);
+await notes.updateAsync({text: 'Skip me'}, {$set: {text: 'Not skipped any more'}, $inc: {stars: 2}});
+
+const found = await notes.findAsync({stars: {$gte: 3}}, {_id: 0}).sort({stars: -1});
+console.table(found);
+`;
+  const NODE_WASM_FILL_JS = `/* BrowserPod's Node.js has a WebAssembly of its own, without the Global, Tag, Exception and RuntimeError that
+   PGlite and Valkey need: they are taken from the browser's own WebAssembly, through what tiny modules export and
+   throw. Where WebAssembly has them already, nothing changes */
+const HEADER = [0, 97, 115, 109, 1, 0, 0, 0];
+const TYPE_VOID = [1, 4, 1, 96, 0, 0];
+const FUNCTION_ONE = [3, 2, 1, 0];
+const TAG_ONE = [13, 3, 1, 0, 0];
+const EXPORT_F = [7, 5, 1, 1, 102, 0, 0];
+
+/* (global (export "g") (mut i32) (i32.const 0)) */
+const exported_global = wasm_exports([...HEADER, 6, 6, 1, 127, 1, 65, 0, 11, 7, 5, 1, 1, 103, 3, 0]).g;
+/* (tag (export "t")) */
+const exported_tag = wasm_exports([...HEADER, ...TYPE_VOID, ...TAG_ONE, 7, 5, 1, 1, 116, 4, 0]).t;
+/* (func (export "f") unreachable) */
+const trap = wasm_exports([...HEADER, ...TYPE_VOID, ...FUNCTION_ONE, ...EXPORT_F, 10, 5, 1, 3, 0, 0, 11]).f;
+/* (tag $t) (func (export "f") throw $t) */
+const thrower = wasm_exports([...HEADER, ...TYPE_VOID, ...FUNCTION_ONE, ...TAG_ONE, ...EXPORT_F, 10, 6, 1, 4, 0, 8, 0, 11]).f;
+
+WebAssembly.Global ??= exported_global.constructor;
+WebAssembly.Tag ??= exported_tag.constructor;
+WebAssembly.RuntimeError ??= error_from_call(trap).constructor;
+WebAssembly.Exception ??= error_from_call(thrower).constructor;
+
+function wasm_exports(bytes)
+{
+    return new WebAssembly.Instance(new WebAssembly.Module(new Uint8Array(bytes))).exports;
+}
+
+function error_from_call(fn)
+{
+    try {
+        fn();
+    }
+    catch (error) {
+        return error;
+    }
+    throw new Error('The call was expected to throw');
+}
+`;
+  const NODE_DATABASE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5fa04e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"></ellipse><path d="M4.5 5.5v13c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-13"></path><path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"></path></svg>';
+  const NODE_ICON ='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5fa04e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20.5 7.3v9.4L12 21.5l-8.5-4.8V7.3z"></path><path d="M9.5 9.5v5M14.5 9.5c-1.2 0-2 .6-2 1.3s.8 1 2 1.2 2 .6 2 1.3-.8 1.2-2 1.2"></path></svg>';
 
   function node_example(value) {
       return NODE_EXAMPLES.find(v => v.value === value) || NODE_EXAMPLES[0];
+  }
+
+  /* the files of an example's project, package.json aside: index.js first, the file that opens */
+  function node_example_files(example) {
+      switch (example.value) {
+      case 'express':
+          return [{name: 'index.js', content: NODE_EXPRESS_JS}];
+      case 'sqlite':
+          return [{name: 'index.js', content: NODE_SQLITE_JS}];
+      case 'postgres':
+          return [{name: 'index.js', content: NODE_POSTGRES_JS}, {name: 'wasm-fill.js', content: NODE_WASM_FILL_JS}];
+      case 'valkey':
+          return [{name: 'index.js', content: NODE_VALKEY_JS}, {name: 'wasm-fill.js', content: NODE_WASM_FILL_JS}];
+      case 'nedb':
+          return [{name: 'index.js', content: NODE_NEDB_JS}];
+      default:
+          return [{name: 'index.js', content: NODE_HELLO_JS}];
+      }
   }
 
   function new_file_last() {
@@ -2556,7 +2686,8 @@ app.listen(3000, async function () {
       const cards = [];
       for (const example of NODE_EXAMPLES) {
           const selected = (example.value === newFileCtx.example) ? ' sel' : '';
-          cards.push(`<div class="tpl${selected}" data-example="${example.value}"><span class="tpl-ic">${NODE_ICON}</span><span class="tpl-tx"><span class="tpl-nm">${example.label}</span><br><span class="tpl-ex">${example.note}</span></span></div>`);
+          const icon = example.is_database ? NODE_DATABASE_ICON : NODE_ICON;
+          cards.push(`<div class="tpl${selected}" data-example="${example.value}"><span class="tpl-ic">${icon}</span><span class="tpl-tx"><span class="tpl-nm">${example.label}</span><br><span class="tpl-ex">${example.note}</span></span></div>`);
       }
       return cards.join('');
   }
@@ -2636,6 +2767,9 @@ app.listen(3000, async function () {
   function render_node_package_json(example, folder_name) {
       const name = folder_name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^[._-]+/, '') || 'project';
       const out = {name, version: '1.0.0', private: true, main: 'index.js'};
+      if (example.is_module) {
+          out.type = 'module';
+      }
       if (example.dependencies) {
           out.dependencies = example.dependencies;
       }
@@ -2667,9 +2801,10 @@ app.listen(3000, async function () {
       const parent_id = node_project_parent(newFileCtx.folderId || null);
       const is_readonly = folderChainReadonly(parent_id);
       const folder = {id: uid(), name: unique_folder_name(name, parent_id), parentId: parent_id, collapsed: false};
-      const main = {id: uid(), name: 'index.js', folderId: folder.id, content: (example.value === 'express') ? NODE_EXPRESS_JS : NODE_HELLO_JS};
-      const package_json = {id: uid(), name: 'package.json', folderId: folder.id, content: render_node_package_json(example, folder.name)};
-      for (const file of [main, package_json]) {
+      const files = node_example_files(example).map(v => ({id: uid(), name: v.name, folderId: folder.id, content: v.content}));
+      const main = files[0];
+      files.push({id: uid(), name: 'package.json', folderId: folder.id, content: render_node_package_json(example, folder.name)});
+      for (const file of files) {
           if (is_readonly) {
               file.readonly = true;
           }
