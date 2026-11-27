@@ -1065,6 +1065,8 @@ const PHP_CASE_MARK = '@@practice-case@@';
 const topic_by_uid = topics_index_by_uid(PRACTICE_TOPICS);
 
 let editor = null;
+/* the topic whose code the editor holds: none until the first topic is loaded, nor after a state is loaded in place of this one */
+let editor_topic_uid = null;
 let draft_timer = 0;
 let storage_timer = 0;
 let toast_timer = 0;
@@ -1255,6 +1257,7 @@ function click_solution(event)
 function editor_load()
 {
     const topic = topic_find_active();
+    editor_topic_uid = topic.uid;
     const draft = (state.drafts[topic.uid] || {})[state.lang];
     editor.setOption('mode', (state.lang === 'php') ? 'application/x-httpd-php' : 'javascript');
     editor.setValue((typeof draft === 'string') ? draft : starter_from_topic(topic, state.lang));
@@ -1284,7 +1287,7 @@ function draft_flush()
 {
     clearTimeout(draft_timer);
     draft_timer = 0;
-    const topic = topic_find_active();
+    const topic = topic_by_uid[editor_topic_uid];
     if (!editor || !topic) {
         return;
     }
@@ -1896,6 +1899,7 @@ function storage_read()
 
 function state_assign(saved)
 {
+    editor_topic_uid = null;
     state.drafts = is_object(saved.drafts) ? saved.drafts : {};
     state.solved = is_object(saved.solved) ? saved.solved : {};
     state.history = Array.isArray(saved.history) ? saved.history.filter(is_run_valid) : [];
@@ -2156,6 +2160,7 @@ function history_act(action, time)
     }
     if (action === 'use') {
         draft_flush();
+        editor_topic_uid = null;
         state.drafts[run.topic_uid] = Object.assign({}, state.drafts[run.topic_uid], {[run.lang]: run.code});
         state.lang_wanted = run.lang;
         storage_write();
