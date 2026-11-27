@@ -7,11 +7,25 @@ Worker, PHP in php-wasm, through the sandbox's own runner.
 
 ## A topic
 
-Each topic explains its algorithm with a worked example, states the task
-and its input, gives hints one at a time, and holds an example
-implementation in JavaScript, and in PHP where the input is plain data.
-Its tests draw the tree each one starts from, and show the expected value
-beside the one returned. A topic is solved once every test passes.
+A topic has three tabs. **Task** states the task and its input, and gives
+hints one at a time. **Solve** puts the editor beside the preview of one
+test: the examples, the first three tests, then the others, each a numbered
+chip in the colour of its result; the one picked shows the value expected
+beside the one returned, then the tree it starts from. **Explanation** says
+how the algorithm works and traces it on the example, with its cost, the
+usual mistakes and links to read more where the topic has them, and holds
+an example implementation in JavaScript, and in PHP where the input is
+plain data. A new topic opens on Task, one with a draft on Solve.
+
+Solve holds the editor and the preview alone, the topic's name beside its
+tabs: its title and brief show on Task and Explanation. The list of topics
+is a drawer, closed while you work: the button at the top left opens it
+over the page, and so does typing outside a field, into its search;
+picking a topic, Escape or a click beside it closes it.
+
+**Run** (Ctrl Enter) tries the code on the examples and on the test shown,
+and keeps nothing. **Submit** (Ctrl Shift Enter) runs every test: it goes
+into the History, and a topic is solved once a Submit passes them all.
 
 The tree topics came from two earlier pages, Tree Gym and Tree Lab: 91 of
 them, in 13 groups, the tasks both pages had merged into one. The group
@@ -46,11 +60,11 @@ args, so a new case needs no expected value. The comment at the top of
 ## Where the work is kept
 
 In the browser's localStorage, on this device only: every draft, the
-solved marks and every run, with its time, result and code (the History
+solved marks and every Submit, with its time, result and code (the History
 tab). **Save all** writes all of it into one JSON file; **Load** brings
 such a file back, in place of what is there, with an Undo.
 
-Each run also writes its code into the sandbox's workspace Practice, a
+Each Submit also writes its code into the sandbox's workspace Practice, a
 folder for each group and a file for each topic and language, so the
 sandbox opens it beside the other snippets. With that workspace open in
 the sandbox at the same time, the sandbox's next save writes over the

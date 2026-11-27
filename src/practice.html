@@ -231,18 +231,43 @@
     }
 
     .shell {
+        position: relative;
         flex: 1;
         display: flex;
         min-height: 0;
     }
 
+    /* the list of topics is a drawer over the page, so the work has the whole width */
     .sidebar {
-        flex: none;
-        width: 280px;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 20;
         display: flex;
         flex-direction: column;
+        width: 300px;
+        max-width: calc(100vw - 48px);
         border-right: 1px solid var(--line);
         background: var(--surface-2);
+        box-shadow: var(--shadow);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 0.15s, visibility 0s 0.15s;
+    }
+
+    /* visible at once, so the search takes the focus and the key that opened the drawer */
+    .shell.is-list-open .sidebar {
+        transform: none;
+        visibility: visible;
+        transition: transform 0.15s;
+    }
+
+    .list-veil {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.3);
     }
 
     .search {
@@ -394,11 +419,92 @@
         font-size: 16px;
     }
 
-    .cols {
+    .view-topic {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pane-bar {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0 0 16px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .pane-tabs {
+        display: flex;
+        gap: 4px;
+        align-self: stretch;
+    }
+
+    .pane-title {
+        flex: 1;
+        min-width: 0;
+        color: var(--muted);
+        font-weight: 600;
+        overflow: hidden;
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .pane-tab {
+        margin-bottom: -1px;
+        padding: 8px 14px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .pane-tab:hover {
+        color: var(--ink);
+    }
+
+    .pane-tab.is-on {
+        border-bottom-color: var(--accent);
+        color: var(--ink);
+    }
+
+    .pane-read {
+        max-width: 860px;
+    }
+
+    .pane-solve {
+        flex: 1;
         display: grid;
-        grid-template-columns: minmax(320px, 5fr) minmax(400px, 7fr);
-        gap: 18px;
-        align-items: start;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 14px;
+        min-height: 460px;
+    }
+
+    .pane-solve .card {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        margin-bottom: 0;
+    }
+
+    .explain-part {
+        margin-top: 12px;
+    }
+
+    .sources {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .sources li + li {
+        margin-top: 4px;
+    }
+
+    .sources a {
+        color: var(--accent);
+        overflow-wrap: anywhere;
     }
 
     .card {
@@ -516,11 +622,16 @@
     }
 
     .editor-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 0;
         border-bottom: 1px solid var(--line);
     }
 
     .CodeMirror {
-        height: 320px;
+        position: absolute;
+        inset: 0;
+        height: 100%;
         font: 13.5px/1.55 var(--font-mono);
         background: var(--surface);
         color: var(--ink);
@@ -597,13 +708,16 @@
     }
 
     .run-bar {
+        flex: none;
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 12px;
+        gap: 10px 12px;
         padding: 10px 14px;
     }
 
     .run-summary {
+        flex: 1 1 160px;
         color: var(--muted);
         overflow-wrap: anywhere;
     }
@@ -618,70 +732,76 @@
         font-weight: 600;
     }
 
-    .results {
-        display: grid;
-        grid-template-columns: minmax(170px, 2fr) minmax(0, 5fr);
-        min-height: 260px;
-    }
-
-    .case-list {
-        border-right: 1px solid var(--line);
-        padding: 6px;
-        max-height: 560px;
-        overflow: auto;
-    }
-
-    .case-link {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        width: 100%;
-        padding: 6px 8px;
-        border: 0;
-        border-radius: 7px;
-        background: transparent;
-        cursor: pointer;
-        text-align: left;
-        font-size: 13px;
-    }
-
-    .case-link:hover {
-        background: var(--surface-2);
-    }
-
-    .case-link.is-on {
-        background: var(--accent-soft);
-    }
-
-    .case-dot {
+    .case-chips {
         flex: none;
-        width: 10px;
-        height: 10px;
-        margin-top: 5px;
-        border-radius: 50%;
-        background: var(--line-strong);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
     }
 
-    .case-dot.is-pass {
-        background: var(--ok);
+    .chips-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
     }
 
-    .case-dot.is-fail,
-    .case-dot.is-error,
-    .case-dot.is-timeout {
-        background: var(--bad);
+    .chips-label + .case-chip {
+        margin-left: 2px;
     }
 
-    .case-dot.is-running {
-        background: var(--warn);
+    .case-chip + .chips-label {
+        margin-left: 10px;
     }
 
-    .case-label {
-        overflow-wrap: anywhere;
+    .case-chip {
+        min-width: 30px;
+        height: 28px;
+        padding: 0 7px;
+        border: 1px solid var(--line-strong);
+        border-radius: 7px;
+        background: var(--surface-2);
+        color: var(--ink);
+        cursor: pointer;
+        font: 600 12.5px/1 var(--font-mono);
+    }
+
+    .case-chip:hover {
+        border-color: var(--accent);
+    }
+
+    .case-chip.is-pass {
+        border-color: var(--ok);
+        background: var(--ok-soft);
+        color: var(--ok);
+    }
+
+    .case-chip.is-fail,
+    .case-chip.is-error,
+    .case-chip.is-timeout {
+        border-color: var(--bad);
+        background: var(--bad-soft);
+        color: var(--bad);
+    }
+
+    .case-chip.is-running {
+        border-color: var(--warn);
+        background: var(--warn-soft);
+        color: var(--warn);
+    }
+
+    .case-chip.is-on {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
     }
 
     .case-detail {
+        flex: 1;
         min-width: 0;
+        min-height: 0;
+        overflow: auto;
         padding: 12px 14px;
     }
 
@@ -689,6 +809,10 @@
         margin: 0 0 8px;
         font-weight: 600;
         overflow-wrap: anywhere;
+    }
+
+    .detail-input {
+        margin-top: 14px;
     }
 
     .detail-note {
@@ -893,8 +1017,18 @@
     }
 
     @media (max-width: 1100px) {
-        .cols {
-            grid-template-columns: 1fr;
+        .pane-solve {
+            flex: none;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .editor-wrap {
+            flex: none;
+            height: 360px;
+        }
+
+        .case-detail {
+            flex: none;
         }
 
         .brand-note {
@@ -910,36 +1044,19 @@
             gap: 10px;
         }
 
-        .shell {
-            flex-direction: column;
-        }
-
-        .sidebar {
-            width: auto;
-            max-height: 40vh;
-            border-right: 0;
-            border-bottom: 1px solid var(--line);
-        }
-
         .view {
             padding: 16px;
         }
 
-        .results,
         .pair {
             grid-template-columns: 1fr;
-        }
-
-        .case-list {
-            border-right: 0;
-            border-bottom: 1px solid var(--line);
-            max-height: 200px;
         }
     }
 </style>
 </head>
 <body>
 <header class="topbar">
+    <button class="btn btn-icon" id="list-btn" title="All the topics; typing outside a field opens them too" aria-expanded="false" aria-controls="sidebar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
     <div class="brand">
         <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><g stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round"><path d="M16 9v5M16 14l-6 6M16 14l6 6"/></g><g fill="var(--accent-ink)"><circle cx="16" cy="8" r="3"/><circle cx="9" cy="22" r="3"/><circle cx="23" cy="22" r="3"/></g></svg>
         <span class="brand-name">Practice</span>
@@ -952,64 +1069,77 @@
     <div class="progress"><span id="progress-text"></span><div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div></div>
     <div class="spacer"></div>
     <button class="btn" id="random-btn" title="Open a topic you have not solved yet, picked at random">🎲 Random topic</button>
-    <button class="btn" id="save-btn" title="Save every draft, solved mark and run into one file">Save all</button>
+    <button class="btn" id="save-btn" title="Save every draft, solved mark and submission into one file">Save all</button>
     <button class="btn" id="load-btn" title="Load a file saved by Save all; drop one on the page too">Load</button>
     <button class="btn btn-icon" id="theme-btn" title="Switch the theme"></button>
 </header>
-<div class="shell">
-    <aside class="sidebar">
+<div class="shell" id="shell">
+    <aside class="sidebar" id="sidebar">
         <input class="search" id="search" type="search" placeholder="Search the topics" autocomplete="off" spellcheck="false">
         <nav class="topic-list" id="topic-list"></nav>
     </aside>
-    <main class="view" id="topic-view">
-        <div class="crumbs" id="topic-crumbs"></div>
-        <h1 id="topic-title"></h1>
-        <p class="brief" id="topic-brief"></p>
-        <div class="cols">
-            <section>
-                <div class="card">
-                    <div class="card-head">Explanation</div>
-                    <div class="card-body" id="topic-explanation"></div>
-                </div>
-                <div class="card">
-                    <div class="card-head">The task</div>
-                    <div class="card-body" id="topic-task"></div>
-                </div>
-                <div class="card">
-                    <div class="card-head">Hints</div>
-                    <div class="card-body" id="topic-hints"></div>
-                </div>
-                <div class="card">
-                    <div class="card-head">An example implementation</div>
-                    <div class="card-body" id="topic-solution"></div>
-                </div>
-            </section>
-            <section>
-                <div class="card">
-                    <div class="card-head">
-                        <div class="lang-tabs">
-                            <button class="lang-tab is-on" id="lang-js">JavaScript</button>
-                            <button class="lang-tab" id="lang-php">PHP</button>
-                        </div>
-                        <span class="head-note" id="lang-note"></span>
-                    </div>
-                    <div class="editor-wrap" id="editor"></div>
-                    <div class="run-bar">
-                        <button class="btn btn-main" id="run-btn">Run tests <span class="kbd">Ctrl Enter</span></button>
-                        <span class="run-summary" id="run-summary"></span>
-                        <span class="spacer"></span>
-                        <button class="btn" id="reset-btn" title="Put the starter code back; the code before stays in the history only if you ran it">Starter code</button>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-head">Tests <span class="head-note" id="cases-note"></span></div>
-                    <div class="results">
-                        <div class="case-list" id="case-list"></div>
-                        <div class="case-detail" id="case-detail"></div>
-                    </div>
-                </div>
-            </section>
+    <div class="list-veil" id="list-veil" hidden></div>
+    <main class="view view-topic" id="topic-view">
+        <div class="pane-bar">
+            <div class="pane-tabs" role="tablist">
+                <button class="pane-tab" id="pane-tab-task" role="tab">Task</button>
+                <button class="pane-tab" id="pane-tab-solve" role="tab">Solve</button>
+                <button class="pane-tab" id="pane-tab-explanation" role="tab">Explanation</button>
+            </div>
+            <span class="pane-title" id="pane-title"></span>
         </div>
+        <div id="topic-head">
+            <div class="crumbs" id="topic-crumbs"></div>
+            <h1 id="topic-title"></h1>
+            <p class="brief" id="topic-brief"></p>
+        </div>
+        <section class="pane-read" id="pane-task">
+            <div class="card">
+                <div class="card-head">The task</div>
+                <div class="card-body" id="topic-task"></div>
+            </div>
+            <div class="card">
+                <div class="card-head">Hints</div>
+                <div class="card-body" id="topic-hints"></div>
+            </div>
+            <button class="btn btn-main" id="solve-btn">Solve it</button>
+        </section>
+        <section class="pane-solve" id="pane-solve">
+            <div class="card">
+                <div class="card-head">
+                    <div class="lang-tabs">
+                        <button class="lang-tab is-on" id="lang-js">JavaScript</button>
+                        <button class="lang-tab" id="lang-php">PHP</button>
+                    </div>
+                    <span class="head-note" id="lang-note"></span>
+                    <button class="link-btn" id="reset-btn" title="Put the starter code back; the code before stays in the History only if you submitted it">Starter code</button>
+                </div>
+                <div class="editor-wrap" id="editor"></div>
+                <div class="run-bar">
+                    <button class="btn" id="run-btn" title="Try the code on the examples and on the test shown beside; nothing is kept as a result">Run <span class="kbd">Ctrl Enter</span></button>
+                    <button class="btn btn-main" id="submit-btn" title="Run every test: the result goes into the History, and a full pass marks the topic solved">Submit <span class="kbd">Ctrl Shift Enter</span></button>
+                    <span class="run-summary" id="run-summary"></span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="case-chips" id="case-chips"></div>
+                <div class="case-detail" id="case-detail"></div>
+            </div>
+        </section>
+        <section class="pane-read" id="pane-explanation">
+            <div class="card">
+                <div class="card-head">How it works</div>
+                <div class="card-body" id="topic-explanation"></div>
+            </div>
+            <div class="card" id="topic-sources-card">
+                <div class="card-head">Read more</div>
+                <div class="card-body" id="topic-sources"></div>
+            </div>
+            <div class="card">
+                <div class="card-head">An example implementation</div>
+                <div class="card-body" id="topic-solution"></div>
+            </div>
+        </section>
     </main>
     <main class="view" id="history-view" hidden>
         <h1>History</h1>
@@ -1040,6 +1170,7 @@ const THEME_KEY = 'practice_theme';
 const SAVE_FORMAT = 'practice-v1';
 const HISTORY_LIMIT = 3000;
 const CASE_SILENCE_MS = 4000;
+const EXAMPLES_COUNT = 3;
 const PHP_RUN_LIMIT_MS = 15000;
 const DIAGRAM_NODES_LIMIT = 160;
 const LEVEL_NAMES = ['', 'Easy', 'Medium', 'Hard'];
@@ -1089,9 +1220,13 @@ const state = {
     drafts: {},
     solved: {},
     history: [],
+    pane: 'task',
+    is_drawer_open: false,
     cases: [],
     case_index: 0,
     run_status: 'idle',
+    run_mode: 'run',
+    run_indexes: [],
     is_storage_failing: false,
 };
 
@@ -1113,6 +1248,8 @@ function main()
         extraKeys: {
             'Ctrl-Enter': click_run,
             'Cmd-Enter': click_run,
+            'Shift-Ctrl-Enter': click_submit,
+            'Shift-Cmd-Enter': click_submit,
             'Ctrl-/': 'toggleComment',
             'Cmd-/': 'toggleComment',
             'Tab': editor_indent,
@@ -1129,6 +1266,8 @@ function events_wire()
 {
     document.getElementById('tab-topics').addEventListener('click', () => tab_open('topics'));
     document.getElementById('tab-history').addEventListener('click', () => tab_open('history'));
+    document.getElementById('list-btn').addEventListener('click', click_list);
+    document.getElementById('list-veil').addEventListener('click', drawer_close);
     document.getElementById('random-btn').addEventListener('click', click_random);
     document.getElementById('save-btn').addEventListener('click', click_save);
     document.getElementById('load-btn').addEventListener('click', () => document.getElementById('load-input').click());
@@ -1138,9 +1277,14 @@ function events_wire()
     document.getElementById('topic-list').addEventListener('click', click_topic_list);
     document.getElementById('lang-js').addEventListener('click', () => lang_switch('js'));
     document.getElementById('lang-php').addEventListener('click', () => lang_switch('php'));
+    document.getElementById('pane-tab-task').addEventListener('click', () => pane_open('task'));
+    document.getElementById('pane-tab-solve').addEventListener('click', () => pane_open('solve'));
+    document.getElementById('pane-tab-explanation').addEventListener('click', () => pane_open('explanation'));
+    document.getElementById('solve-btn').addEventListener('click', () => pane_open('solve'));
     document.getElementById('run-btn').addEventListener('click', click_run);
+    document.getElementById('submit-btn').addEventListener('click', click_submit);
     document.getElementById('reset-btn').addEventListener('click', click_reset);
-    document.getElementById('case-list').addEventListener('click', click_case_list);
+    document.getElementById('case-chips').addEventListener('click', click_case_chips);
     document.getElementById('topic-hints').addEventListener('click', click_hints);
     document.getElementById('topic-solution').addEventListener('click', click_solution);
     document.getElementById('history-body').addEventListener('click', click_history);
@@ -1170,7 +1314,10 @@ function topic_open(uid)
     state.cases = topic.cases.map(v => ({item: v, status: 'idle', expected: undefined, actual: undefined, args: v.args, message: null, logs: []}));
     state.case_index = 0;
     state.run_status = 'idle';
+    state.run_indexes = [];
+    state.pane = is_topic_started(uid) ? 'solve' : 'task';
     editor_load();
+    refresh_pane();
     refresh_topic();
     refresh_topic_list();
     refresh_cases();
@@ -1198,6 +1345,18 @@ function langs_solved_of(uid)
     return Object.keys(state.solved[uid] || {});
 }
 
+/* a topic with a draft or a solution opens on Solve, a new one on its task */
+function is_topic_started(uid)
+{
+    return !!state.drafts[uid] || !!state.solved[uid];
+}
+
+function pane_open(pane)
+{
+    state.pane = pane;
+    refresh_pane();
+}
+
 function topics_match(search)
 {
     const words = search.toLowerCase().split(/\s+/).filter(Boolean);
@@ -1215,6 +1374,7 @@ function click_topic_list(event)
     }
     topic_open(link.dataset.topic);
     tab_open('topics');
+    drawer_close();
 }
 
 function input_search(event)
@@ -1378,37 +1538,69 @@ function expected_fill(topic)
 
 function click_run()
 {
+    tests_run('run');
+}
+
+function click_submit()
+{
+    tests_run('submit');
+}
+
+/* Run tries the code and keeps nothing; only Submit counts: the History, the solved mark, the sandbox's file */
+function tests_run(mode)
+{
     if (state.run_status === 'running') {
         return;
     }
     draft_flush();
+    pane_open('solve');
     const topic = topic_find_active();
     const code = editor.getValue();
+    const indexes = case_indexes_of_run(mode);
     for (const item of state.cases) {
-        item.status = 'running';
+        item.status = 'idle';
         item.actual = undefined;
         item.message = null;
         item.logs = [];
     }
+    for (const index of indexes) {
+        state.cases[index].status = 'running';
+    }
     state.run_status = 'running';
+    state.run_mode = mode;
+    state.run_indexes = indexes;
     refresh_cases();
     refresh_run_summary();
     if (state.lang === 'php') {
-        php_tests_run(topic, code);
+        php_tests_run(topic, code, indexes);
         return;
     }
     const run_id = ++run_seq;
-    const job = {run_id, source: code, reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases, time_limit_ms: time_limit_of(topic)};
+    const cases = indexes.map(v => topic.cases[v]);
+    const job = {run_id, source: code, reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases, time_limit_ms: time_limit_of(topic)};
     worker_run(job, function (message) {
         if (run_id !== run_seq) {
             return;
         }
-        case_result_set(message.index, message);
+        case_result_set(indexes[message.index], message);
     }).then(function () {
         if (run_id === run_seq) {
             run_finish(topic, 'js', code);
         }
     });
+}
+
+/* Run takes the examples, the first tests of a topic, and the test shown beside the editor; Submit takes them all */
+function case_indexes_of_run(mode)
+{
+    if (mode === 'submit') {
+        return [...state.cases.keys()];
+    }
+    const out = [...state.cases.keys()].slice(0, EXAMPLES_COUNT);
+    if (!out.includes(state.case_index)) {
+        out.push(state.case_index);
+    }
+    return out;
 }
 
 function case_result_set(index, result)
@@ -1421,13 +1613,13 @@ function case_result_set(index, result)
     item.actual = result.actual;
     item.message = result.message || null;
     item.logs = result.logs || [];
-    refresh_case_link(index);
+    refresh_case_chip(index);
     if (index === state.case_index) {
         refresh_case_detail();
     }
 }
 
-/* one run is done: its result goes into the history, a full pass marks the topic solved */
+/* one run is done: the first case it failed is shown; a Submit is kept */
 function run_finish(topic, lang, code)
 {
     for (const item of state.cases) {
@@ -1435,26 +1627,34 @@ function run_finish(topic, lang, code)
             item.status = 'skipped';
         }
     }
-    const passed = state.cases.filter(v => v.status === 'pass').length;
-    const total = state.cases.length;
-    const time = new Date().toISOString();
+    const passed = state.run_indexes.filter(v => state.cases[v].status === 'pass').length;
+    const total = state.run_indexes.length;
     state.run_status = (passed === total) ? 'pass' : 'fail';
+    const failed_index = state.run_indexes.find(v => state.cases[v].status !== 'pass');
+    if (failed_index !== undefined) {
+        state.case_index = failed_index;
+    }
+    if (state.run_mode === 'submit') {
+        submission_save(topic, lang, code, passed, total);
+    }
+    refresh_cases();
+    refresh_run_summary();
+}
+
+/* a Submit goes into the history and the sandbox's Practice workspace; a full pass marks the topic solved */
+function submission_save(topic, lang, code, passed, total)
+{
+    const time = new Date().toISOString();
     if (passed === total) {
         state.solved[topic.uid] = Object.assign({}, state.solved[topic.uid], {[lang]: time});
     }
     state.history.unshift({time, topic_uid: topic.uid, lang, passed, total, code});
     state.history.length = Math.min(state.history.length, HISTORY_LIMIT);
-    const failed_index = state.cases.findIndex(v => v.status !== 'pass');
-    if (failed_index >= 0) {
-        state.case_index = failed_index;
-    }
     sandbox_practice_write(topic, lang, code);
     storage_write();
-    refresh_cases();
-    refresh_run_summary();
+    refresh_topic();
     refresh_topic_list();
     refresh_progress();
-    refresh_lang();
     if (state.tab === 'history') {
         refresh_history();
     }
@@ -1522,11 +1722,12 @@ function worker_run(job, on_case)
 
 /* ---------- PHP: the cases go in as JSON, each result comes back as a line of JSON on stdout ---------- */
 
-async function php_tests_run(topic, code)
+async function php_tests_run(topic, code, indexes)
 {
     const run_id = ++run_seq;
+    const cases = indexes.map(v => topic.cases[v]);
     const prepared = [];
-    await worker_run({run_id, source: '', reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases: topic.cases, time_limit_ms: time_limit_of(topic), is_reference_only: true}, function (message) {
+    await worker_run({run_id, source: '', reference: topic.solution, fn: topic.fn, observe: topic.observe, check: topic.check, is_pure: topic.is_pure, cases, time_limit_ms: time_limit_of(topic), is_reference_only: true}, function (message) {
         prepared[message.index] = message;
     });
     if (run_id !== run_seq) {
@@ -1543,8 +1744,9 @@ async function php_tests_run(topic, code)
     }
     const observed_by_index = php_cases_from_stdout(result.stdout || '');
     const crash = crash_text_from_php(result);
-    prepared.forEach(function (reference, index) {
-        const observed = observed_by_index[index];
+    prepared.forEach(function (reference, i) {
+        const index = indexes[i];
+        const observed = observed_by_index[i];
         if (!observed) {
             case_result_set(index, {status: 'error', expected: reference.expected, message: crash || 'The script stopped before this case.', logs: []});
             return;
@@ -1973,7 +2175,7 @@ function click_save()
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    toast_show(`Saved: ${format_count(Object.keys(state.solved).length, 'topic solved', 'topics solved')}, ${format_count(state.history.length, 'run', 'runs')}.`);
+    toast_show(`Saved: ${format_count(Object.keys(state.solved).length, 'topic solved', 'topics solved')}, ${format_count(state.history.length, 'submission', 'submissions')}.`);
 }
 
 function change_load_input(event)
@@ -2004,7 +2206,7 @@ async function file_load(file)
     const before = JSON.parse(JSON.stringify(saved_from_state()));
     state_assign(saved);
     state_apply();
-    toast_show(`Loaded ${file.name}: ${format_count(Object.keys(state.solved).length, 'topic solved', 'topics solved')}, ${format_count(state.history.length, 'run', 'runs')}.`, function () {
+    toast_show(`Loaded ${file.name}: ${format_count(Object.keys(state.solved).length, 'topic solved', 'topics solved')}, ${format_count(state.history.length, 'submission', 'submissions')}.`, function () {
         state_assign(before);
         state_apply();
         toast_show('Back as it was before the load.');
@@ -2074,6 +2276,36 @@ function tab_open(tab)
     refresh_tab();
 }
 
+function click_list()
+{
+    if (state.is_drawer_open) {
+        drawer_close();
+    }
+    else {
+        drawer_open();
+    }
+}
+
+function drawer_open()
+{
+    state.is_drawer_open = true;
+    refresh_drawer();
+    const link = document.querySelector('#topic-list .topic-link.is-on');
+    if (link) {
+        link.scrollIntoView({block: 'nearest'});
+    }
+}
+
+/* the search the drawer hides gives its focus back, so typed keys open the drawer again */
+function drawer_close()
+{
+    state.is_drawer_open = false;
+    refresh_drawer();
+    if (document.getElementById('sidebar').contains(document.activeElement)) {
+        document.activeElement.blur();
+    }
+}
+
 function click_theme()
 {
     const theme = (document.documentElement.dataset.theme === 'dark') ? 'light' : 'dark';
@@ -2086,12 +2318,16 @@ function click_theme()
     refresh_theme_button();
 }
 
-/* typing outside a field goes to the search, its first character too */
+/* typing outside a field opens the drawer and goes to its search, the first character too; Escape closes it */
 function keydown_document(event)
 {
     if ((event.ctrlKey || event.metaKey) && (event.key === 'Enter')) {
         event.preventDefault();
-        click_run();
+        tests_run(event.shiftKey ? 'submit' : 'run');
+        return;
+    }
+    if ((event.key === 'Escape') && state.is_drawer_open) {
+        drawer_close();
         return;
     }
     if (event.ctrlKey || event.metaKey || event.altKey || (event.key.length !== 1)) {
@@ -2102,6 +2338,7 @@ function keydown_document(event)
         return;
     }
     const search = document.getElementById('search');
+    drawer_open();
     search.focus();
 }
 
@@ -2187,6 +2424,28 @@ function refresh_tab()
     refresh_progress();
 }
 
+function refresh_pane()
+{
+    document.getElementById('pane-tab-task').classList.toggle('is-on', state.pane === 'task');
+    document.getElementById('pane-tab-solve').classList.toggle('is-on', state.pane === 'solve');
+    document.getElementById('pane-tab-explanation').classList.toggle('is-on', state.pane === 'explanation');
+    document.getElementById('pane-task').hidden = (state.pane !== 'task');
+    document.getElementById('pane-solve').hidden = (state.pane !== 'solve');
+    document.getElementById('pane-explanation').hidden = (state.pane !== 'explanation');
+    document.getElementById('topic-head').hidden = (state.pane === 'solve');
+    document.getElementById('pane-title').hidden = (state.pane !== 'solve');
+    if (state.pane === 'solve') {
+        editor.refresh();
+    }
+}
+
+function refresh_drawer()
+{
+    document.getElementById('shell').classList.toggle('is-list-open', state.is_drawer_open);
+    document.getElementById('list-veil').hidden = !state.is_drawer_open;
+    document.getElementById('list-btn').setAttribute('aria-expanded', String(state.is_drawer_open));
+}
+
 function refresh_theme_button()
 {
     const is_dark = (document.documentElement.dataset.theme === 'dark');
@@ -2258,8 +2517,8 @@ function refresh_topic()
     }
     document.getElementById('topic-crumbs').innerHTML = tags.join('');
     document.getElementById('topic-title').textContent = topic.title;
+    document.getElementById('pane-title').textContent = topic.title;
     document.getElementById('topic-brief').innerHTML = render_text(topic.brief);
-    document.getElementById('topic-explanation').innerHTML = `<p>${render_text(topic.explanation.approach)}</p><div class="example"><span class="example-label">Example</span>${render_text(topic.explanation.example)}</div>`;
     const rules = topic.rules.filter(Boolean).map(v => `<li>${render_text(v)}</li>`).join('');
     document.getElementById('topic-task').innerHTML = [
         `<div class="mono">${esc(signature_of(topic, state.lang))}</div>`,
@@ -2267,9 +2526,30 @@ function refresh_topic()
         `<p style="margin-top:10px"><span class="example-label">Input</span>${render_text(topic.input.text)}</p>`,
         `<div class="mono">${esc(format_input_example(topic.input.example))}</div>`,
     ].join('');
+    refresh_explanation();
     refresh_hints();
     refresh_solution();
     refresh_lang();
+}
+
+/* the approach in paragraphs, the example traced; the cost, the usual mistakes and the sources where a topic has them */
+function refresh_explanation()
+{
+    const topic = topic_find_active();
+    const explanation = topic.explanation;
+    const html = explanation.approach.split(/\n\n+/).map(v => `<p>${render_text(v)}</p>`);
+    html.push(`<div class="example"><span class="example-label">On the example</span>${render_text(explanation.example)}</div>`);
+    if (explanation.cost) {
+        html.push(`<div class="explain-part"><span class="example-label">Cost</span>${render_text(explanation.cost)}</div>`);
+    }
+    if (explanation.pitfalls) {
+        html.push(`<div class="explain-part"><span class="example-label">Mistakes to avoid</span><ul class="rules">${explanation.pitfalls.map(v => `<li>${render_text(v)}</li>`).join('')}</ul></div>`);
+    }
+    document.getElementById('topic-explanation').innerHTML = html.join('');
+    const sources = topic.sources || [];
+    const links = sources.map(v => `<li><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title)}</a></li>`);
+    document.getElementById('topic-sources').innerHTML = `<ul class="sources">${links.join('')}</ul>`;
+    document.getElementById('topic-sources-card').hidden = !sources.length;
 }
 
 function refresh_hints()
@@ -2323,60 +2603,76 @@ function refresh_lang()
 function refresh_run_summary()
 {
     const summary = document.getElementById('run-summary');
-    const run_button = document.getElementById('run-btn');
-    const passed = state.cases.filter(v => v.status === 'pass').length;
-    const total = state.cases.length;
-    run_button.disabled = (state.run_status === 'running');
+    const is_running = (state.run_status === 'running');
+    const is_submit = (state.run_mode === 'submit');
+    const passed = state.run_indexes.filter(v => state.cases[v].status === 'pass').length;
+    const total = state.run_indexes.length;
+    document.getElementById('run-btn').disabled = is_running;
+    document.getElementById('submit-btn').disabled = is_running;
     summary.className = 'run-summary';
     switch (state.run_status) {
     case 'running':
-        summary.textContent = (state.lang === 'php') ? 'Running in PHP… the first run loads PHP, a few seconds' : 'Running…';
+        summary.textContent = `${is_submit ? 'Running every test' : 'Running'}${(state.lang === 'php') ? ' in PHP… the first run loads PHP, a few seconds' : '…'}`;
         break;
     case 'pass':
         summary.classList.add('is-pass');
-        summary.textContent = `All ${total} passed. Solved.`;
+        summary.textContent = is_submit ? `All ${total} passed. Solved.` : `${format_count(total, 'test', 'tests')} passed. Submit when it is ready.`;
         break;
     case 'fail':
         summary.classList.add('is-fail');
         summary.textContent = `${passed} of ${total} passed`;
         break;
     default:
-        summary.textContent = `${format_count(total, 'test', 'tests')} to pass`;
+        summary.textContent = `${format_count(state.cases.length, 'test', 'tests')} to pass`;
     }
     refresh_lang();
 }
 
+/* the examples first, then the other tests, each a numbered chip in the colour of its result */
 function refresh_cases()
 {
-    const list = document.getElementById('case-list');
-    list.innerHTML = state.cases.map((item, index) => render_case_link(item, index)).join('');
-    document.getElementById('cases-note').textContent = format_count(state.cases.length, 'case', 'cases');
+    const html = [];
+    for (const [index, item] of state.cases.entries()) {
+        if (index === 0) {
+            html.push('<span class="chips-label">Examples</span>');
+        }
+        if (index === EXAMPLES_COUNT) {
+            html.push('<span class="chips-label">Tests</span>');
+        }
+        html.push(render_case_chip(item, index));
+    }
+    document.getElementById('case-chips').innerHTML = html.join('');
     refresh_case_detail();
 }
 
-function refresh_case_link(index)
+function refresh_case_chip(index)
 {
-    const link = document.querySelector(`.case-link[data-case="${index}"]`);
-    if (link) {
-        link.outerHTML = render_case_link(state.cases[index], index);
+    const chip = document.querySelector(`.case-chip[data-case="${index}"]`);
+    if (chip) {
+        chip.outerHTML = render_case_chip(state.cases[index], index);
     }
 }
 
-function render_case_link(item, index)
+function render_case_chip(item, index)
 {
     const on = (index === state.case_index) ? ' is-on' : '';
-    return `<button class="case-link${on}" data-case="${index}"><span class="case-dot is-${item.status}"></span><span class="case-label">${esc(item.item.label)}</span></button>`;
+    return `<button class="case-chip is-${item.status}${on}" data-case="${index}" title="${esc(format_case_name(index))}: ${esc(item.item.label)}">${index + 1}</button>`;
 }
 
-function click_case_list(event)
+function format_case_name(index)
 {
-    const link = event.target.closest('[data-case]');
-    if (!link) {
+    return (index < EXAMPLES_COUNT) ? `Example ${index + 1}` : `Test ${index + 1}`;
+}
+
+function click_case_chips(event)
+{
+    const chip = event.target.closest('[data-case]');
+    if (!chip) {
         return;
     }
-    state.case_index = Number(link.dataset.case);
-    for (const node of document.querySelectorAll('.case-link')) {
-        node.classList.toggle('is-on', node === link);
+    state.case_index = Number(chip.dataset.case);
+    for (const node of document.querySelectorAll('.case-chip')) {
+        node.classList.toggle('is-on', node === chip);
     }
     refresh_case_detail();
 }
@@ -2389,15 +2685,13 @@ function refresh_case_detail()
         box.innerHTML = '';
         return;
     }
-    const html = [`<p class="detail-title">${esc(item.item.label)}</p>`];
+    const html = [`<p class="detail-title">${esc(format_case_name(state.case_index))} · ${esc(item.item.label)}</p>`];
     if (item.item.note) {
         html.push(`<p class="detail-note">${render_text(item.item.note)}</p>`);
     }
     if (item.message) {
         html.push(`<div class="message">${esc(item.message)}</div>`);
     }
-    html.push(render_case_diagram(item));
-    html.push(render_case_args(item));
     const actual_class = (item.status === 'pass') ? 'is-pass' : (((item.status === 'fail') || (item.status === 'error')) ? 'is-fail' : '');
     const expected_html = (item.expected === undefined) ? '<div class="mono">working it out…</div>' : render_value_box(item.expected, '');
     const actual_html = (item.actual === undefined) ? `<div class="mono ${actual_class}">${esc(format_missing_actual(item))}</div>` : render_value_box(item.actual, actual_class);
@@ -2406,6 +2700,7 @@ function refresh_case_detail()
     if (item.logs.length) {
         html.push(`<div class="logs"><span class="pair-label">Printed</span><div class="mono">${esc(item.logs.join('\n'))}</div></div>`);
     }
+    html.push(`<div class="detail-input">${render_case_diagram(item)}${render_case_args(item)}</div>`);
     box.innerHTML = html.join('');
 }
 
@@ -2438,7 +2733,7 @@ function format_missing_actual(item)
     case 'timeout':
         return 'no result';
     default:
-        return 'Run the tests to see what your function returns.';
+        return 'Run to see what your function returns.';
     }
 }
 
@@ -2688,10 +2983,10 @@ function refresh_history()
     const solved = Object.keys(state.solved).length;
     if (!runs.length) {
         intro.textContent = '';
-        body.innerHTML = '<div class="history-empty">No runs yet. Every time you run the tests of a topic, the run shows here: when, which topic, in which language, how many tests passed and the code you ran.</div>';
+        body.innerHTML = '<div class="history-empty">Nothing submitted yet. Every time you submit a topic, it shows here: when, which topic, in which language, how many tests passed and the code you submitted. Run tries the code and keeps nothing.</div>';
         return;
     }
-    intro.textContent = `${format_count(runs.length, 'run', 'runs')}, newest first; ${format_count(solved, 'topic solved', 'topics solved')}. A row opens the code it ran.`;
+    intro.textContent = `${format_count(runs.length, 'submission', 'submissions')}, newest first; ${format_count(solved, 'topic solved', 'topics solved')}. A row opens the code submitted.`;
     const rows = [];
     for (const run of runs) {
         const topic = topic_by_uid[run.topic_uid];
