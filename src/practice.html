@@ -542,17 +542,99 @@
         font-size: 16px;
     }
 
+    /* a topic fills the window: its code on the left, the rest on the right, the bar between them drags */
     .view-topic {
         display: flex;
         flex-direction: column;
+        padding-bottom: 18px;
+    }
+
+    .topic-bar {
+        flex: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 14px;
+        margin-bottom: 14px;
+    }
+
+    .back-btn {
+        flex: none;
+    }
+
+    .topic-title {
+        min-width: 0;
+        margin: 0;
+        font-size: 24px;
+    }
+
+    .split {
+        --split-left: 1fr;
+        --split-right: 1fr;
+        flex: 1;
+        display: grid;
+        grid-template-columns: minmax(0, var(--split-left)) 12px minmax(0, var(--split-right));
+        min-height: 460px;
+    }
+
+    .split > .split-pane {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        margin-bottom: 0;
+    }
+
+    /* a line in the middle of a wider grip, the accent while held */
+    .split-bar {
+        position: relative;
+        cursor: col-resize;
+        touch-action: none;
+    }
+
+    .split-bar::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 5px;
+        width: 2px;
+        border-radius: 1px;
+        background: transparent;
+    }
+
+    .split-bar:hover::before,
+    .split-bar:focus-visible::before,
+    .split-bar.is-held::before {
+        background: var(--accent);
+    }
+
+    .split-bar:focus-visible {
+        outline: none;
+    }
+
+    .split-bar::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 3px;
+        width: 6px;
+        height: 28px;
+        margin-top: -14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 3px;
+        background: var(--surface-2);
+    }
+
+    body.is-splitting {
+        cursor: col-resize;
+        user-select: none;
     }
 
     .pane-bar {
         flex: none;
         display: flex;
         align-items: center;
-        gap: 14px;
-        margin: 0 0 16px;
+        padding: 0 8px;
         border-bottom: 1px solid var(--line);
     }
 
@@ -562,20 +644,9 @@
         align-self: stretch;
     }
 
-    .pane-title {
-        flex: 1;
-        min-width: 0;
-        color: var(--muted);
-        font-weight: 600;
-        overflow: hidden;
-        text-align: right;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
     .pane-tab {
         margin-bottom: -1px;
-        padding: 8px 14px;
+        padding: 10px 12px 8px;
         border: 0;
         border-bottom: 2px solid transparent;
         background: transparent;
@@ -593,41 +664,36 @@
         color: var(--ink);
     }
 
-    .back-btn {
-        flex: none;
-        align-self: center;
-        margin-bottom: 4px;
-    }
-
-    .pane-read {
-        max-width: 860px;
-    }
-
-    /* the task on the left, its example drawn as a tree beside it */
-    .pane-task {
-        display: grid;
-        grid-template-columns: minmax(0, 860px) minmax(0, 1fr);
-        gap: 14px;
-        align-items: start;
-    }
-
-    .task-side .diagram {
-        max-height: 520px;
-        margin-bottom: 0;
-    }
-
-    .pane-solve {
+    .pane-body {
         flex: 1;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 14px;
-        min-height: 460px;
+        min-height: 0;
+        overflow: auto;
+        padding: 14px;
     }
 
-    .pane-solve .card {
+    .pane-body .brief {
+        margin-bottom: 14px;
+    }
+
+    .part + .part {
+        margin-top: 16px;
+    }
+
+    .part-head {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+    }
+
+    .pane-tests {
+        flex: 1;
         display: flex;
         flex-direction: column;
         min-height: 0;
+    }
+
+    #task-diagram .diagram {
+        max-height: 420px;
         margin-bottom: 0;
     }
 
@@ -1159,13 +1225,27 @@
     }
 
     @media (max-width: 1100px) {
-        .pane-solve {
+        /* one panel under the other, nothing to drag */
+        .split {
             flex: none;
             grid-template-columns: minmax(0, 1fr);
+            gap: 14px;
         }
 
-        .pane-task {
-            grid-template-columns: minmax(0, 1fr);
+        .split-bar {
+            display: none;
+        }
+
+        .pane-body {
+            flex: none;
+        }
+
+        /* the buttons go to a second row rather than past the window's edge */
+        .topbar {
+            flex-wrap: wrap;
+            height: auto;
+            padding: 8px 12px;
+            gap: 10px;
         }
 
         .editor-wrap {
@@ -1234,39 +1314,13 @@
         </div>
     </main>
     <main class="view view-topic" id="topic-view" hidden>
-        <div class="pane-bar">
+        <div class="topic-bar">
             <button class="btn back-btn" id="back-btn" title="Every topic, by group"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Topics</button>
-            <div class="pane-tabs" role="tablist">
-                <button class="pane-tab" id="pane-tab-task" role="tab">Task</button>
-                <button class="pane-tab" id="pane-tab-solve" role="tab">Solve</button>
-                <button class="pane-tab" id="pane-tab-explanation" role="tab">Explanation</button>
-            </div>
-            <span class="pane-title" id="pane-title"></span>
-        </div>
-        <div id="topic-head">
+            <h1 class="topic-title" id="topic-title"></h1>
             <div class="crumbs" id="topic-crumbs"></div>
-            <h1 id="topic-title"></h1>
-            <p class="brief" id="topic-brief"></p>
         </div>
-        <section class="pane-task" id="pane-task">
-            <div>
-                <div class="card">
-                    <div class="card-head">The task</div>
-                    <div class="card-body" id="topic-task"></div>
-                </div>
-                <div class="card">
-                    <div class="card-head">Hints</div>
-                    <div class="card-body" id="topic-hints"></div>
-                </div>
-                <button class="btn btn-main" id="solve-btn">Solve it</button>
-            </div>
-            <div class="card task-side" id="task-side">
-                <div class="card-head">The example, drawn</div>
-                <div class="card-body" id="task-diagram"></div>
-            </div>
-        </section>
-        <section class="pane-solve" id="pane-solve">
-            <div class="card">
+        <div class="split" id="split">
+            <section class="card split-pane" id="pane-code">
                 <div class="card-head">
                     <div class="lang-tabs">
                         <button class="lang-tab is-on" id="lang-js">JavaScript</button>
@@ -1281,26 +1335,45 @@
                     <button class="btn btn-main" id="submit-btn" title="Run every test: the result goes into the History, and a full pass marks the topic solved">Submit <span class="kbd">Ctrl Shift Enter</span></button>
                     <span class="run-summary" id="run-summary"></span>
                 </div>
-            </div>
-            <div class="card">
-                <div class="case-chips" id="case-chips"></div>
-                <div class="case-detail" id="case-detail"></div>
-            </div>
-        </section>
-        <section class="pane-read" id="pane-explanation">
-            <div class="card">
-                <div class="card-head">How it works</div>
-                <div class="card-body" id="topic-explanation"></div>
-            </div>
-            <div class="card" id="topic-sources-card">
-                <div class="card-head">Read more</div>
-                <div class="card-body" id="topic-sources"></div>
-            </div>
-            <div class="card">
-                <div class="card-head">An example implementation</div>
-                <div class="card-body" id="topic-solution"></div>
-            </div>
-        </section>
+            </section>
+            <div class="split-bar" id="split-bar" role="separator" aria-orientation="vertical" aria-controls="pane-code" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0" title="Drag to change the widths; arrow keys too; a double click puts it back in the middle"></div>
+            <section class="card split-pane" id="pane-side">
+                <div class="pane-bar">
+                    <div class="pane-tabs" role="tablist">
+                        <button class="pane-tab" id="pane-tab-task" role="tab">Task</button>
+                        <button class="pane-tab" id="pane-tab-tests" role="tab">Tests</button>
+                        <button class="pane-tab" id="pane-tab-explanation" role="tab">Explanation</button>
+                    </div>
+                </div>
+                <div class="pane-body" id="pane-task">
+                    <p class="brief" id="topic-brief"></p>
+                    <div class="part" id="topic-task"></div>
+                    <div class="part" id="task-side">
+                        <span class="part-head">The example, drawn</span>
+                        <div id="task-diagram"></div>
+                    </div>
+                    <div class="part">
+                        <span class="part-head">Hints</span>
+                        <div id="topic-hints"></div>
+                    </div>
+                </div>
+                <div class="pane-tests" id="pane-tests">
+                    <div class="case-chips" id="case-chips"></div>
+                    <div class="case-detail" id="case-detail"></div>
+                </div>
+                <div class="pane-body" id="pane-explanation">
+                    <div class="part" id="topic-explanation"></div>
+                    <div class="part" id="topic-sources-card">
+                        <span class="part-head">Read more</span>
+                        <div id="topic-sources"></div>
+                    </div>
+                    <div class="part">
+                        <span class="part-head">An example implementation</span>
+                        <div id="topic-solution"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </main>
     <main class="view" id="history-view" hidden>
         <h1>History</h1>
@@ -1328,6 +1401,9 @@
 <script>
 const STORAGE_KEY = 'practice_v1';
 const THEME_KEY = 'practice_theme';
+const SPLIT_KEY = 'practice_split';
+const SPLIT_PANE_MIN_PX = 300;
+const SPLIT_BAR_PX = 12;
 const SAVE_FORMAT = 'practice-v1';
 const HISTORY_LIMIT = 3000;
 const CASE_SILENCE_MS = 4000;
@@ -1382,6 +1458,7 @@ const state = {
     solved: {},
     history: [],
     pane: 'task',
+    split: 0.5,
     cases: [],
     case_index: 0,
     run_status: 'idle',
@@ -1417,6 +1494,7 @@ function main()
     });
     editor.on('change', change_editor);
     events_wire();
+    split_read();
     refresh_theme_button();
     const route_topic = topic_by_uid[route_name_read()];
     if (route_topic) {
@@ -1426,6 +1504,7 @@ function main()
     route_apply();
     refresh_catalog_note();
     refresh_tab();
+    refresh_split();
 }
 
 function events_wire()
@@ -1444,9 +1523,11 @@ function events_wire()
     document.getElementById('lang-js').addEventListener('click', () => lang_switch('js'));
     document.getElementById('lang-php').addEventListener('click', () => lang_switch('php'));
     document.getElementById('pane-tab-task').addEventListener('click', () => pane_open('task'));
-    document.getElementById('pane-tab-solve').addEventListener('click', () => pane_open('solve'));
+    document.getElementById('pane-tab-tests').addEventListener('click', () => pane_open('tests'));
     document.getElementById('pane-tab-explanation').addEventListener('click', () => pane_open('explanation'));
-    document.getElementById('solve-btn').addEventListener('click', () => pane_open('solve'));
+    document.getElementById('split-bar').addEventListener('pointerdown', pointerdown_split);
+    document.getElementById('split-bar').addEventListener('keydown', keydown_split);
+    document.getElementById('split-bar').addEventListener('dblclick', () => split_set(0.5));
     document.getElementById('run-btn').addEventListener('click', click_run);
     document.getElementById('submit-btn').addEventListener('click', click_submit);
     document.getElementById('reset-btn').addEventListener('click', click_reset);
@@ -1482,7 +1563,7 @@ function topic_open(uid)
     state.case_index = 0;
     state.run_status = 'idle';
     state.run_indexes = [];
-    state.pane = is_topic_started(uid) ? 'solve' : 'task';
+    state.pane = is_topic_started(uid) ? 'tests' : 'task';
     editor_load();
     refresh_pane();
     refresh_topic();
@@ -1734,7 +1815,7 @@ function tests_run(mode)
         return;
     }
     draft_flush();
-    pane_open('solve');
+    pane_open('tests');
     const topic = topic_find_active();
     const code = editor.getValue();
     const indexes = case_indexes_of_run(mode);
@@ -2459,6 +2540,77 @@ function tab_open(tab)
     refresh_tab();
 }
 
+/* ---------- the bar between the code and the rest: dragged, or moved by the arrow keys; each viewer keeps their own ---------- */
+
+function split_read()
+{
+    try {
+        const value = Number(localStorage.getItem(SPLIT_KEY));
+        if ((value > 0) && (value < 1)) {
+            state.split = value;
+        }
+    }
+    catch {
+    }
+}
+
+function split_set(value)
+{
+    state.split = split_clamp(value);
+    refresh_split();
+    try {
+        localStorage.setItem(SPLIT_KEY, String(state.split));
+    }
+    catch {
+    }
+}
+
+/* neither side narrower than SPLIT_PANE_MIN_PX while the split has room for both */
+function split_clamp(value)
+{
+    const width = document.getElementById('split').clientWidth - SPLIT_BAR_PX;
+    const min = (width > 2*SPLIT_PANE_MIN_PX) ? SPLIT_PANE_MIN_PX/width : 0.5;
+    return Math.min(1 - min, Math.max(min, value));
+}
+
+function pointerdown_split(event)
+{
+    if (event.button !== 0) {
+        return;
+    }
+    event.preventDefault();
+    const bar = event.currentTarget;
+    const rect = document.getElementById('split').getBoundingClientRect();
+    bar.setPointerCapture(event.pointerId);
+    bar.classList.add('is-held');
+    document.body.classList.add('is-splitting');
+    bar.addEventListener('pointermove', pointermove_bar);
+    bar.addEventListener('pointerup', pointerup_bar);
+    bar.addEventListener('pointercancel', pointerup_bar);
+    function pointermove_bar(move) {
+        state.split = split_clamp((move.clientX - rect.left - SPLIT_BAR_PX/2)/(rect.width - SPLIT_BAR_PX));
+        refresh_split();
+    }
+    function pointerup_bar() {
+        bar.removeEventListener('pointermove', pointermove_bar);
+        bar.removeEventListener('pointerup', pointerup_bar);
+        bar.removeEventListener('pointercancel', pointerup_bar);
+        bar.classList.remove('is-held');
+        document.body.classList.remove('is-splitting');
+        split_set(state.split);
+    }
+}
+
+function keydown_split(event)
+{
+    const step_by_key = {ArrowLeft: -0.02, ArrowRight: 0.02};
+    if (!(event.key in step_by_key)) {
+        return;
+    }
+    event.preventDefault();
+    split_set(state.split + step_by_key[event.key]);
+}
+
 /* ---------- the address: #<topic uid>, #history, or none for the topics; a reload keeps it, Back goes to the one before ---------- */
 
 function route_name_read()
@@ -2641,16 +2793,20 @@ function refresh_tab()
 function refresh_pane()
 {
     document.getElementById('pane-tab-task').classList.toggle('is-on', state.pane === 'task');
-    document.getElementById('pane-tab-solve').classList.toggle('is-on', state.pane === 'solve');
+    document.getElementById('pane-tab-tests').classList.toggle('is-on', state.pane === 'tests');
     document.getElementById('pane-tab-explanation').classList.toggle('is-on', state.pane === 'explanation');
     document.getElementById('pane-task').hidden = (state.pane !== 'task');
-    document.getElementById('pane-solve').hidden = (state.pane !== 'solve');
+    document.getElementById('pane-tests').hidden = (state.pane !== 'tests');
     document.getElementById('pane-explanation').hidden = (state.pane !== 'explanation');
-    document.getElementById('topic-head').hidden = (state.pane === 'solve');
-    document.getElementById('pane-title').hidden = (state.pane !== 'solve');
-    if (state.pane === 'solve') {
-        editor.refresh();
-    }
+}
+
+function refresh_split()
+{
+    const split = document.getElementById('split');
+    split.style.setProperty('--split-left', `${(100*state.split).toFixed(2)}fr`);
+    split.style.setProperty('--split-right', `${(100*(1 - state.split)).toFixed(2)}fr`);
+    document.getElementById('split-bar').setAttribute('aria-valuenow', String(Math.round(100*state.split)));
+    editor.refresh();
 }
 
 function refresh_theme_button()
@@ -2752,7 +2908,6 @@ function refresh_topic()
     }
     document.getElementById('topic-crumbs').innerHTML = tags.join('');
     document.getElementById('topic-title').textContent = topic.title;
-    document.getElementById('pane-title').textContent = topic.title;
     document.getElementById('topic-brief').innerHTML = render_text(topic.brief);
     const rules = topic.rules.filter(Boolean).map(v => `<li>${render_text(v)}</li>`).join('');
     document.getElementById('topic-task').innerHTML = [

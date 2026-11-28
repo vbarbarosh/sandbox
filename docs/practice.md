@@ -21,19 +21,21 @@ topics.
 
 ## A topic
 
-A topic has three tabs, and **Topics** beside them goes back to every
-topic. **Task** states the task and its input, draws the input's tree
-beside it, and gives hints one at a time. **Solve** puts the editor beside the preview of one
-test: the examples, the first three tests, then the others, each a numbered
-chip in the colour of its result; the one picked shows the value expected
-beside the one returned, then the tree it starts from. **Explanation** says
-how the algorithm works and traces it on the example, with its cost, the
-usual mistakes and links to read more where the topic has them, and holds
-an example implementation in JavaScript, and in PHP where the input is
-plain data. A new topic opens on Task, one with a draft on Solve.
-
-Solve holds the editor and the preview alone, the topic's name beside its
-tabs: its title and brief show on Task and Explanation.
+A topic is two panels: the editor on the left, three tabs on the right,
+and a bar between them that drags to change their widths. The arrow keys
+move it too, a double click puts it back in the middle, and each browser
+keeps its own. Neither panel gets narrower than 300 px; under 1100 px the
+panels stack, the editor on top, with no bar. **Topics** above them goes
+back to every topic. **Task** states the task and its input, draws the
+input's tree under it, and gives hints one at a time. **Tests** previews
+one test: the examples, the first three tests, then the others, each a
+numbered chip in the colour of its result; the one picked shows the value
+expected beside the one returned, then the tree it starts from.
+**Explanation** says how the algorithm works and traces it on the example,
+with its cost, the usual mistakes and links to read more where the topic
+has them, and holds an example implementation in JavaScript, and in PHP
+where the input is plain data. A new topic opens on Task, one with a draft
+on Tests, and a Run turns to Tests.
 
 **Run** (Ctrl Enter) tries the code on the examples and on the test shown,
 and keeps nothing. **Submit** (Ctrl Shift Enter) runs every test: it goes
