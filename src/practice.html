@@ -237,48 +237,106 @@
         min-height: 0;
     }
 
-    /* the list of topics is a drawer over the page, so the work has the whole width */
-    .sidebar {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        z-index: 20;
+    /* the way back to the sandbox, its </> on blue as in the sandbox's own top bar */
+    .sandbox-link {
+        color: var(--ink);
+        text-decoration: none;
+    }
+
+    .sandbox-mark {
+        display: grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        background: #3b82f6;
+        color: #ffffff;
+        font: 700 10px var(--font-mono);
+    }
+
+    /* every group has a colour of its own, from its --hue: its card, its tag, the topic's head */
+    .group-tinted {
+        --group: hsl(var(--hue) 62% 36%);
+        --group-soft: hsl(var(--hue) 55% 92%);
+    }
+
+    :root[data-theme="dark"] .group-tinted {
+        --group: hsl(var(--hue) 70% 68%);
+        --group-soft: hsl(var(--hue) 35% 19%);
+    }
+
+    .catalog {
+        max-width: 1500px;
+        margin: 0 auto;
+    }
+
+    .catalog-head {
         display: flex;
-        flex-direction: column;
-        width: 300px;
-        max-width: calc(100vw - 48px);
-        border-right: 1px solid var(--line);
-        background: var(--surface-2);
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .catalog-intro {
+        min-width: 0;
+        max-width: 760px;
+    }
+
+    .catalog-intro .brief {
+        margin-bottom: 0;
+        color: var(--muted);
+    }
+
+    .next-card {
+        display: grid;
+        gap: 2px;
+        min-width: 260px;
+        max-width: 420px;
+        padding: 12px 16px;
+        border: 1px solid var(--group);
+        border-left-width: 5px;
+        border-radius: 6px;
+        background: var(--group-soft);
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .next-card:hover {
         box-shadow: var(--shadow);
-        transform: translateX(-100%);
-        visibility: hidden;
-        transition: transform 0.15s, visibility 0s 0.15s;
     }
 
-    /* visible at once, so the search takes the focus and the key that opened the drawer */
-    .shell.is-list-open .sidebar {
-        transform: none;
-        visibility: visible;
-        transition: transform 0.15s;
+    .next-label {
+        color: var(--group);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
     }
 
-    .list-veil {
-        position: absolute;
-        inset: 0;
-        z-index: 10;
-        background: rgba(0, 0, 0, 0.3);
+    .next-title {
+        font: 700 19px/1.25 var(--font-head);
+        overflow-wrap: anywhere;
+    }
+
+    .next-note {
+        color: var(--muted);
+        font-size: 13px;
     }
 
     .search {
-        margin: 12px 12px 6px;
-        height: 34px;
-        padding: 0 10px;
+        width: 100%;
+        max-width: 520px;
+        height: 38px;
+        margin-bottom: 18px;
+        padding: 0 12px;
         border: 1px solid var(--line-strong);
-        border-radius: 8px;
+        border-radius: 6px;
         background: var(--surface);
         color: var(--ink);
         font: inherit;
+        font-size: 15px;
     }
 
     .search:focus {
@@ -286,21 +344,53 @@
         border-color: var(--accent);
     }
 
+    /* groups flow down columns as wide as fit, each card whole in one of them */
     .topic-list {
-        flex: 1;
-        overflow: auto;
-        padding: 4px 8px 16px;
+        column-width: 320px;
+        column-gap: 16px;
     }
 
-    .group-name {
+    .group-card {
+        break-inside: avoid;
+        margin-bottom: 16px;
+        padding: 12px 10px 8px;
+        border: 1px solid var(--line);
+        border-top: 4px solid var(--group);
+        border-radius: 6px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+    }
+
+    .group-head {
         display: flex;
+        align-items: baseline;
         justify-content: space-between;
-        margin: 14px 8px 4px;
+        gap: 10px;
+        padding: 0 8px;
+    }
+
+    .group-title {
+        color: var(--group);
+        font: 700 17px/1.3 var(--font-head);
+    }
+
+    .group-count {
+        flex: none;
         color: var(--muted);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+        font-size: 12px;
+    }
+
+    .group-bar {
+        height: 4px;
+        margin: 8px 8px 6px;
+        border-radius: 2px;
+        background: var(--group-soft);
+        overflow: hidden;
+    }
+
+    .group-fill {
+        height: 100%;
+        background: var(--group);
     }
 
     .topic-link {
@@ -321,8 +411,14 @@
     }
 
     .topic-link.is-on {
-        background: var(--accent-soft);
+        background: var(--group-soft);
         font-weight: 600;
+    }
+
+    /* the first match of a search: Enter opens it */
+    .topic-link.is-first {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
     }
 
     .topic-mark {
@@ -367,8 +463,16 @@
         background: var(--line-strong);
     }
 
-    .level i.is-on {
+    .level.is-1 i.is-on {
+        background: var(--ok);
+    }
+
+    .level.is-2 i.is-on {
         background: var(--warn);
+    }
+
+    .level.is-3 i.is-on {
+        background: var(--bad);
     }
 
     .list-empty {
@@ -404,6 +508,25 @@
         background: var(--ok-soft);
         border-color: transparent;
         color: var(--ok);
+    }
+
+    .tag-group {
+        background: var(--group-soft);
+        border-color: transparent;
+        color: var(--group);
+        font-weight: 600;
+    }
+
+    .tag-level.is-1 {
+        color: var(--ok);
+    }
+
+    .tag-level.is-2 {
+        color: var(--warn);
+    }
+
+    .tag-level.is-3 {
+        color: var(--bad);
     }
 
     h1 {
@@ -470,8 +593,27 @@
         color: var(--ink);
     }
 
+    .back-btn {
+        flex: none;
+        align-self: center;
+        margin-bottom: 4px;
+    }
+
     .pane-read {
         max-width: 860px;
+    }
+
+    /* the task on the left, its example drawn as a tree beside it */
+    .pane-task {
+        display: grid;
+        grid-template-columns: minmax(0, 860px) minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+    }
+
+    .task-side .diagram {
+        max-height: 520px;
+        margin-bottom: 0;
     }
 
     .pane-solve {
@@ -1022,6 +1164,10 @@
             grid-template-columns: minmax(0, 1fr);
         }
 
+        .pane-task {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
         .editor-wrap {
             flex: none;
             height: 360px;
@@ -1056,7 +1202,7 @@
 </head>
 <body>
 <header class="topbar">
-    <button class="btn btn-icon" id="list-btn" title="All the topics; typing outside a field opens them too" aria-expanded="false" aria-controls="sidebar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <a class="btn sandbox-link" href="index.html" title="Back to the sandbox; each Submit is a file of its workspace Practice"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="sandbox-mark">&lt;/&gt;</span>Sandbox</a>
     <div class="brand">
         <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><g stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round"><path d="M16 9v5M16 14l-6 6M16 14l6 6"/></g><g fill="var(--accent-ink)"><circle cx="16" cy="8" r="3"/><circle cx="9" cy="22" r="3"/><circle cx="23" cy="22" r="3"/></g></svg>
         <span class="brand-name">Practice</span>
@@ -1074,13 +1220,22 @@
     <button class="btn btn-icon" id="theme-btn" title="Switch the theme"></button>
 </header>
 <div class="shell" id="shell">
-    <aside class="sidebar" id="sidebar">
-        <input class="search" id="search" type="search" placeholder="Search the topics" autocomplete="off" spellcheck="false">
-        <nav class="topic-list" id="topic-list"></nav>
-    </aside>
-    <div class="list-veil" id="list-veil" hidden></div>
-    <main class="view view-topic" id="topic-view">
+    <main class="view" id="catalog-view">
+        <div class="catalog">
+            <div class="catalog-head">
+                <div class="catalog-intro">
+                    <h1>Pick a topic</h1>
+                    <p class="brief" id="catalog-note"></p>
+                </div>
+                <div id="catalog-next"></div>
+            </div>
+            <input class="search" id="search" type="search" placeholder="Search the topics: typing anywhere starts here" autocomplete="off" spellcheck="false">
+            <nav class="topic-list" id="topic-list"></nav>
+        </div>
+    </main>
+    <main class="view view-topic" id="topic-view" hidden>
         <div class="pane-bar">
+            <button class="btn back-btn" id="back-btn" title="Every topic, by group"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Topics</button>
             <div class="pane-tabs" role="tablist">
                 <button class="pane-tab" id="pane-tab-task" role="tab">Task</button>
                 <button class="pane-tab" id="pane-tab-solve" role="tab">Solve</button>
@@ -1093,16 +1248,22 @@
             <h1 id="topic-title"></h1>
             <p class="brief" id="topic-brief"></p>
         </div>
-        <section class="pane-read" id="pane-task">
-            <div class="card">
-                <div class="card-head">The task</div>
-                <div class="card-body" id="topic-task"></div>
+        <section class="pane-task" id="pane-task">
+            <div>
+                <div class="card">
+                    <div class="card-head">The task</div>
+                    <div class="card-body" id="topic-task"></div>
+                </div>
+                <div class="card">
+                    <div class="card-head">Hints</div>
+                    <div class="card-body" id="topic-hints"></div>
+                </div>
+                <button class="btn btn-main" id="solve-btn">Solve it</button>
             </div>
-            <div class="card">
-                <div class="card-head">Hints</div>
-                <div class="card-body" id="topic-hints"></div>
+            <div class="card task-side" id="task-side">
+                <div class="card-head">The example, drawn</div>
+                <div class="card-body" id="task-diagram"></div>
             </div>
-            <button class="btn btn-main" id="solve-btn">Solve it</button>
         </section>
         <section class="pane-solve" id="pane-solve">
             <div class="card">
@@ -1221,7 +1382,6 @@ const state = {
     solved: {},
     history: [],
     pane: 'task',
-    is_drawer_open: false,
     cases: [],
     case_index: 0,
     run_status: 'idle',
@@ -1258,7 +1418,13 @@ function main()
     editor.on('change', change_editor);
     events_wire();
     refresh_theme_button();
+    const route_topic = topic_by_uid[route_name_read()];
+    if (route_topic) {
+        state.topic_uid = route_topic.uid;
+    }
     topic_open(state.topic_uid);
+    route_apply();
+    refresh_catalog_note();
     refresh_tab();
 }
 
@@ -1266,15 +1432,15 @@ function events_wire()
 {
     document.getElementById('tab-topics').addEventListener('click', () => tab_open('topics'));
     document.getElementById('tab-history').addEventListener('click', () => tab_open('history'));
-    document.getElementById('list-btn').addEventListener('click', click_list);
-    document.getElementById('list-veil').addEventListener('click', drawer_close);
+    document.getElementById('back-btn').addEventListener('click', () => tab_open('topics'));
     document.getElementById('random-btn').addEventListener('click', click_random);
     document.getElementById('save-btn').addEventListener('click', click_save);
     document.getElementById('load-btn').addEventListener('click', () => document.getElementById('load-input').click());
     document.getElementById('load-input').addEventListener('change', change_load_input);
     document.getElementById('theme-btn').addEventListener('click', click_theme);
     document.getElementById('search').addEventListener('input', input_search);
-    document.getElementById('topic-list').addEventListener('click', click_topic_list);
+    document.getElementById('search').addEventListener('keydown', keydown_search);
+    document.getElementById('catalog-view').addEventListener('click', click_topic_list);
     document.getElementById('lang-js').addEventListener('click', () => lang_switch('js'));
     document.getElementById('lang-php').addEventListener('click', () => lang_switch('php'));
     document.getElementById('pane-tab-task').addEventListener('click', () => pane_open('task'));
@@ -1295,6 +1461,7 @@ function events_wire()
     document.addEventListener('dragover', dragover_document);
     document.addEventListener('drop', drop_document);
     window.addEventListener('beforeunload', storage_write);
+    window.addEventListener('popstate', popstate_window);
 }
 
 /* ---------- topics ---------- */
@@ -1373,14 +1540,28 @@ function click_topic_list(event)
         return;
     }
     topic_open(link.dataset.topic);
-    tab_open('topics');
-    drawer_close();
+    tab_open('topic');
 }
 
 function input_search(event)
 {
     state.search = event.target.value;
     refresh_topic_list();
+}
+
+/* Enter opens the first topic the search matches */
+function keydown_search(event)
+{
+    if (event.key !== 'Enter') {
+        return;
+    }
+    const topics = topics_match(state.search);
+    if (!state.search.trim() || !topics.length) {
+        return;
+    }
+    event.preventDefault();
+    topic_open(topics[0].uid);
+    tab_open('topic');
 }
 
 /* a random topic not solved yet in the language at hand; once all are, any other one */
@@ -1391,7 +1572,7 @@ function click_random()
     const pool = open.length ? open : others;
     const topic = pool[Math.floor(Math.random()*pool.length)];
     topic_open(topic.uid);
-    tab_open('topics');
+    tab_open('topic');
 }
 
 function click_hints(event)
@@ -2270,40 +2451,73 @@ function is_file_drag(event)
 
 /* ---------- tabs, theme, keys, toast ---------- */
 
+/* "topics" is the page of every topic, "topic" the open one, "history" every Submit */
 function tab_open(tab)
 {
     state.tab = tab;
+    route_write();
     refresh_tab();
 }
 
-function click_list()
+/* ---------- the address: #<topic uid>, #history, or none for the topics; a reload keeps it, Back goes to the one before ---------- */
+
+function route_name_read()
 {
-    if (state.is_drawer_open) {
-        drawer_close();
+    try {
+        return decodeURIComponent(location.hash.slice(1));
     }
-    else {
-        drawer_open();
+    catch {
+        return '';
     }
 }
 
-function drawer_open()
+function route_from_state()
 {
-    state.is_drawer_open = true;
-    refresh_drawer();
-    const link = document.querySelector('#topic-list .topic-link.is-on');
-    if (link) {
-        link.scrollIntoView({block: 'nearest'});
+    if (state.tab === 'topic') {
+        return `#${encodeURIComponent(state.topic_uid)}`;
+    }
+    if (state.tab === 'history') {
+        return '#history';
+    }
+    return '';
+}
+
+/* a file:// page may refuse pushState; the hash itself still moves there */
+function route_write()
+{
+    const route = route_from_state();
+    if (location.hash === route) {
+        return;
+    }
+    try {
+        window.history.pushState(null, '', route || `${location.pathname}${location.search}`);
+    }
+    catch {
+        location.hash = route;
     }
 }
 
-/* the search the drawer hides gives its focus back, so typed keys open the drawer again */
-function drawer_close()
+function route_apply()
 {
-    state.is_drawer_open = false;
-    refresh_drawer();
-    if (document.getElementById('sidebar').contains(document.activeElement)) {
-        document.activeElement.blur();
+    const name = route_name_read();
+    if (name === 'history') {
+        state.tab = 'history';
+        return;
     }
+    if (topic_by_uid[name]) {
+        if (name !== state.topic_uid) {
+            topic_open(name);
+        }
+        state.tab = 'topic';
+        return;
+    }
+    state.tab = 'topics';
+}
+
+function popstate_window()
+{
+    route_apply();
+    refresh_tab();
 }
 
 function click_theme()
@@ -2318,28 +2532,24 @@ function click_theme()
     refresh_theme_button();
 }
 
-/* typing outside a field opens the drawer and goes to its search, the first character too; Escape closes it */
+/* on the topics, typing outside a field goes to their search, the first character too */
 function keydown_document(event)
 {
     if ((event.ctrlKey || event.metaKey) && (event.key === 'Enter')) {
         event.preventDefault();
-        tests_run(event.shiftKey ? 'submit' : 'run');
+        if (state.tab === 'topic') {
+            tests_run(event.shiftKey ? 'submit' : 'run');
+        }
         return;
     }
-    if ((event.key === 'Escape') && state.is_drawer_open) {
-        drawer_close();
-        return;
-    }
-    if (event.ctrlKey || event.metaKey || event.altKey || (event.key.length !== 1)) {
+    if ((state.tab !== 'topics') || event.ctrlKey || event.metaKey || event.altKey || (event.key.length !== 1)) {
         return;
     }
     const target = event.target;
     if (target.closest('input, textarea, select, [contenteditable], .CodeMirror')) {
         return;
     }
-    const search = document.getElementById('search');
-    drawer_open();
-    search.focus();
+    document.getElementById('search').focus();
 }
 
 function toast_show(text, undo)
@@ -2392,7 +2602,7 @@ function history_act(action, time)
     }
     if (action === 'open') {
         topic_open(run.topic_uid);
-        tab_open('topics');
+        tab_open('topic');
         return;
     }
     if (action === 'use') {
@@ -2402,7 +2612,7 @@ function history_act(action, time)
         state.lang_wanted = run.lang;
         storage_write();
         topic_open(run.topic_uid);
-        tab_open('topics');
+        tab_open('topic');
         toast_show(`The code of ${format_time(run.time)} is in the editor now.`);
     }
 }
@@ -2411,14 +2621,18 @@ function history_act(action, time)
 
 function refresh_tab()
 {
-    document.getElementById('tab-topics').classList.toggle('is-on', state.tab === 'topics');
+    document.getElementById('tab-topics').classList.toggle('is-on', state.tab !== 'history');
     document.getElementById('tab-history').classList.toggle('is-on', state.tab === 'history');
-    document.getElementById('topic-view').hidden = (state.tab !== 'topics');
+    document.getElementById('catalog-view').hidden = (state.tab !== 'topics');
+    document.getElementById('topic-view').hidden = (state.tab !== 'topic');
     document.getElementById('history-view').hidden = (state.tab !== 'history');
     if (state.tab === 'history') {
         refresh_history();
     }
-    else {
+    if (state.tab === 'topics') {
+        refresh_topic_list();
+    }
+    if (state.tab === 'topic') {
         editor.refresh();
     }
     refresh_progress();
@@ -2439,13 +2653,6 @@ function refresh_pane()
     }
 }
 
-function refresh_drawer()
-{
-    document.getElementById('shell').classList.toggle('is-list-open', state.is_drawer_open);
-    document.getElementById('list-veil').hidden = !state.is_drawer_open;
-    document.getElementById('list-btn').setAttribute('aria-expanded', String(state.is_drawer_open));
-}
-
 function refresh_theme_button()
 {
     const is_dark = (document.documentElement.dataset.theme === 'dark');
@@ -2463,34 +2670,36 @@ function refresh_progress()
     document.getElementById('progress-fill').style.width = `${(100*solved/PRACTICE_TOPICS.length).toFixed(1)}%`;
 }
 
+/* every group a card of its topics, in its own colour; a search keeps the topics it matches, the first one marked for Enter */
 function refresh_topic_list()
 {
     const topics = topics_match(state.search);
+    const first_uid = (state.search.trim() && topics.length) ? topics[0].uid : null;
     const html = [];
     for (const group of PRACTICE_GROUPS) {
-        const members = topics.filter(v => v.group === group);
-        if (!members.length) {
+        const members = PRACTICE_TOPICS.filter(v => v.group === group);
+        const shown = topics.filter(v => v.group === group);
+        if (!shown.length) {
             continue;
         }
         const solved = members.filter(v => langs_solved_of(v.uid).length).length;
-        html.push(`<div class="group-name"><span>${esc(group)}</span><span>${solved}/${members.length}</span></div>`);
-        for (const topic of members) {
-            html.push(render_topic_link(topic));
-        }
+        html.push([
+            `<section class="group-card group-tinted" style="--hue: ${hue_of_group(group)}">`,
+            `<div class="group-head"><span class="group-title">${esc(group)}</span><span class="group-count">${solved} of ${members.length} solved</span></div>`,
+            `<div class="group-bar"><div class="group-fill" style="width: ${(100*solved/members.length).toFixed(1)}%"></div></div>`,
+            shown.map(v => render_topic_link(v, v.uid === first_uid)).join(''),
+            '</section>',
+        ].join(''));
     }
     if (!html.length) {
         html.push(`<p class="list-empty">No topic matches “${esc(state.search)}”.</p>`);
     }
-    const list = document.getElementById('topic-list');
-    list.innerHTML = html.join('');
-    const active = list.querySelector('.topic-link.is-on');
-    if (active) {
-        active.scrollIntoView({block: 'nearest'});
-    }
+    document.getElementById('topic-list').innerHTML = html.join('');
+    refresh_catalog_next();
     refresh_progress();
 }
 
-function render_topic_link(topic)
+function render_topic_link(topic, is_first)
 {
     const langs = langs_solved_of(topic.uid);
     const is_here = langs.includes(state.lang);
@@ -2498,7 +2707,33 @@ function render_topic_link(topic)
     const mark_title = langs.length ? `Solved in ${langs.map(v => LANG_NAMES[v]).join(' and ')}` : 'Not solved yet';
     const dots = [1, 2, 3].map(v => `<i class="${(v <= topic.level) ? 'is-on' : ''}"></i>`).join('');
     const on = (topic.uid === state.topic_uid) ? ' is-on' : '';
-    return `<button class="topic-link${on}" data-topic="${esc(topic.uid)}"><span class="topic-mark ${mark_class}" title="${mark_title}">${langs.length ? '✓' : ''}</span><span class="topic-name">${esc(topic.title)}</span><span class="level" title="${LEVEL_NAMES[topic.level]}">${dots}</span></button>`;
+    const first = is_first ? ' is-first' : '';
+    return `<button class="topic-link${on}${first}" data-topic="${esc(topic.uid)}"><span class="topic-mark ${mark_class}" title="${mark_title}">${langs.length ? '✓' : ''}</span><span class="topic-name">${esc(topic.title)}</span><span class="level is-${topic.level}" title="${LEVEL_NAMES[topic.level]}">${dots}</span></button>`;
+}
+
+/* the topic last opened, to carry on with; a first visit starts with the first topic */
+function refresh_catalog_next()
+{
+    const topic = topic_find_active();
+    const is_started = is_topic_started(topic.uid);
+    document.getElementById('catalog-next').innerHTML = [
+        `<button class="next-card group-tinted" style="--hue: ${hue_of_group(topic.group)}" data-topic="${esc(topic.uid)}">`,
+        `<span class="next-label">${is_started ? 'Continue' : 'Start with'}</span>`,
+        `<span class="next-title">${esc(topic.title)}</span>`,
+        `<span class="next-note">${esc(topic.group)} · ${LEVEL_NAMES[topic.level]}</span>`,
+        '</button>',
+    ].join('');
+}
+
+function refresh_catalog_note()
+{
+    document.getElementById('catalog-note').textContent = `${PRACTICE_TOPICS.length} topics in ${PRACTICE_GROUPS.length} groups, each a function to write in JavaScript or PHP. Run tries it on the examples; Submit checks it on every test.`;
+}
+
+/* the groups' hues a golden angle apart, so neighbours never look alike */
+function hue_of_group(group)
+{
+    return Math.round((170 + 137.5*PRACTICE_GROUPS.indexOf(group)) % 360);
 }
 
 function refresh_topic()
@@ -2506,8 +2741,8 @@ function refresh_topic()
     const topic = topic_find_active();
     const solved_langs = langs_solved_of(topic.uid);
     const tags = [
-        `<span>${esc(topic.group)}</span>`,
-        `<span class="tag">${LEVEL_NAMES[topic.level]}</span>`,
+        `<span class="tag tag-group group-tinted" style="--hue: ${hue_of_group(topic.group)}">${esc(topic.group)}</span>`,
+        `<span class="tag tag-level is-${topic.level}">${LEVEL_NAMES[topic.level]}</span>`,
     ];
     if (topic.from.length) {
         tags.push(`<span class="tag">from ${esc(topic.from.join(' and '))}</span>`);
@@ -2526,6 +2761,9 @@ function refresh_topic()
         `<p style="margin-top:10px"><span class="example-label">Input</span>${render_text(topic.input.text)}</p>`,
         `<div class="mono">${esc(format_input_example(topic.input.example))}</div>`,
     ].join('');
+    const drawn = Object.values(topic.input.example).find(v => is_tree_root(v) || (Array.isArray(v) && v.length && v.every(is_tree_root)));
+    document.getElementById('task-side').hidden = !drawn;
+    document.getElementById('task-diagram').innerHTML = drawn ? render_diagram(drawn, null) : '';
     refresh_explanation();
     refresh_hints();
     refresh_solution();

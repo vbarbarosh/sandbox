@@ -5,10 +5,25 @@ sandbox: tree and array algorithms to practise, one function at a time,
 in JavaScript or PHP. It runs code the way the sandbox does: JavaScript in a
 Worker, PHP in php-wasm, through the sandbox's own runner.
 
+The sandbox's top bar has a **Practice** button that opens it, and its own
+top bar a **Sandbox** button back, both in the same tab.
+
+## The topics
+
+The page opens on every topic, a card for each group in a colour of its
+own, its topics with their solved marks and levels (green dots easy,
+amber medium, red hard). Beside the title, **Continue** opens the topic
+last opened, or **Start with** the first one on a first visit. Typing
+anywhere outside a field goes to the search; Enter opens the first topic
+it matches. The address says what is open, `practice.html#<topic>` or
+`#history`, so a reload keeps it and the browser's Back goes to the
+topics.
+
 ## A topic
 
-A topic has three tabs. **Task** states the task and its input, and gives
-hints one at a time. **Solve** puts the editor beside the preview of one
+A topic has three tabs, and **Topics** beside them goes back to every
+topic. **Task** states the task and its input, draws the input's tree
+beside it, and gives hints one at a time. **Solve** puts the editor beside the preview of one
 test: the examples, the first three tests, then the others, each a numbered
 chip in the colour of its result; the one picked shows the value expected
 beside the one returned, then the tree it starts from. **Explanation** says
@@ -18,10 +33,7 @@ an example implementation in JavaScript, and in PHP where the input is
 plain data. A new topic opens on Task, one with a draft on Solve.
 
 Solve holds the editor and the preview alone, the topic's name beside its
-tabs: its title and brief show on Task and Explanation. The list of topics
-is a drawer, closed while you work: the button at the top left opens it
-over the page, and so does typing outside a field, into its search;
-picking a topic, Escape or a click beside it closes it.
+tabs: its title and brief show on Task and Explanation.
 
 **Run** (Ctrl Enter) tries the code on the examples and on the test shown,
 and keeps nothing. **Submit** (Ctrl Shift Enter) runs every test: it goes
