@@ -455,7 +455,7 @@ isolation_start();
 "use strict";
 (function(){
   var LS = 'codesandbox_spa_v1';
-  var THEME_LS = 'codesandbox_theme'; /* theme is a global, device-level preference */
+  var THEME_LS = 'codesandbox_theme'; /* theme is a global, device-level preference, practice.html's too */
   /* the version the About shows: bin/release raises it, commits and tags it */
   const SANDBOX_VERSION = '1.0.0';
   var SO = '<' + 'script>', SC = '<' + '/script>';
@@ -951,6 +951,7 @@ isolation_start();
     if(!S.templates) S.templates={};
     if(S.templateId){ var _tf=null; for(var _i=0;_i<S.files.length;_i++) if(S.files[_i].id===S.templateId){_tf=S.files[_i];break;} if(_tf) S.templates[fileType(_tf.name)]=S.templateId; delete S.templateId; save(); }
     try{ var gt = localStorage.getItem(THEME_LS); if(gt==='light' || gt==='dark') S.theme = gt; }catch(e){}
+    theme_seed();
   }
 
   /* ---------- workspaces: a whole tree each, one open in a tab at a time ----------
@@ -3713,6 +3714,64 @@ function error_from_call(fn)
       : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>';
     if(cm) cm.setOption('theme', S.theme==='dark'?'material-darker':'default');
   }
+
+  /* the theme is one choice for the sandbox and practice.html, under THEME_LS: the first of them opened with
+     nothing there puts its own theme there, so the other one opens in the same */
+  function theme_seed() {
+      const themes = ['light', 'dark'];
+      try {
+          if ((!themes.includes(localStorage.getItem(THEME_LS))) && themes.includes(S.theme)) {
+              localStorage.setItem(THEME_LS, S.theme);
+          }
+      }
+      catch {
+      }
+  }
+
+  /* the theme of S on the page, and in the frame of the file open */
+  function theme_show() {
+      applyTheme();
+      const file = activeFile();
+      const dark = (S.theme === 'dark');
+      if (file && isJson(file.name)) {
+          if (jsonFrameReady) {
+              try {
+                  document.getElementById('json-frame').contentWindow.postMessage({__jf: 1, type: 'theme', dark}, '*');
+              }
+              catch {
+              }
+          }
+      }
+      else if (file && (isMarkdown(file.name) || isMdx(file.name) || isDrawio(file.name) || isExcalidraw(file.name) || file.binary)) {
+          updatePreview();
+      }
+      else {
+          try {
+              document.getElementById('preview').contentWindow.postMessage({__sbtheme: 1, dark}, '*');
+          }
+          catch {
+          }
+      }
+  }
+
+  /* the theme picked meanwhile in practice.html or another tab: THEME_LS changed, or this page came back from
+     the history */
+  function theme_sync() {
+      if (!S) {
+          return;
+      }
+      let theme = null;
+      try {
+          theme = localStorage.getItem(THEME_LS);
+      }
+      catch {
+      }
+      if (((theme === 'light') || (theme === 'dark')) && (theme !== S.theme)) {
+          S.theme = theme;
+          theme_show();
+      }
+  }
+
   function applyLayout(){
     document.getElementById('sidebar').style.display = S.sidebarHidden ? 'none' : 'flex';
     document.getElementById('sb-resizer').style.display = S.sidebarHidden ? 'none' : 'block';
@@ -3819,11 +3878,9 @@ function error_from_call(fn)
   document.getElementById('about-close').addEventListener('click', about_close);
   document.getElementById('about-modal').addEventListener('mousedown', about_backdrop);
   document.addEventListener('keydown', about_keydown);
-  document.getElementById('theme-btn').addEventListener('click', function(){ S.theme=S.theme==='dark'?'light':'dark'; try{ localStorage.setItem(THEME_LS, S.theme); }catch(e){} if(!NOTE) save(); applyTheme(); var af=activeFile();
-    if(af && isJson(af.name)){ if(jsonFrameReady){ try{ document.getElementById('json-frame').contentWindow.postMessage({__jf:1,type:'theme',dark:S.theme==='dark'},'*'); }catch(e){} } }
-    else if(af && (isMarkdown(af.name)||isMdx(af.name)||isDrawio(af.name)||isExcalidraw(af.name)||af.binary)) updatePreview();
-    else { try{ document.getElementById('preview').contentWindow.postMessage({__sbtheme:1, dark:S.theme==='dark'}, '*'); }catch(e){} }
-  });
+  document.getElementById('theme-btn').addEventListener('click', function(){ S.theme=S.theme==='dark'?'light':'dark'; try{ localStorage.setItem(THEME_LS, S.theme); }catch(e){} if(!NOTE) save(); theme_show(); });
+  window.addEventListener('storage', theme_sync);
+  window.addEventListener('pageshow', theme_sync);
   document.getElementById('zip-btn').addEventListener('click', exportZip);
   document.getElementById('zip-import-btn').addEventListener('click', () => zip_import_pick(null));
   document.getElementById('zip-input').addEventListener('change', zip_input_change);

@@ -6,13 +6,17 @@
 <title>Practice</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230f766e'/%3E%3Cg stroke='%23fff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M16 9v5M16 14l-6 6M16 14l6 6'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Ccircle cx='16' cy='8' r='3'/%3E%3Ccircle cx='9' cy='22' r='3'/%3E%3Ccircle cx='23' cy='22' r='3'/%3E%3C/g%3E%3C/svg%3E">
 <script>
-    /* the theme is on <html> before anything is drawn: the saved choice, else the OS setting once */
+    /* the theme is on <html> before anything is drawn: the choice this page and the sandbox share, else the OS
+       setting once, saved there for the sandbox to open in too */
     (function () {
         let theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         try {
-            const saved = localStorage.getItem('practice_theme');
+            const saved = localStorage.getItem('codesandbox_theme');
             if ((saved === 'light') || (saved === 'dark')) {
                 theme = saved;
+            }
+            else {
+                localStorage.setItem('codesandbox_theme', theme);
             }
         }
         catch {
@@ -1400,7 +1404,8 @@
 <script src="practice/topics.js"></script>
 <script>
 const STORAGE_KEY = 'practice_v1';
-const THEME_KEY = 'practice_theme';
+/* the sandbox's key: one theme for both pages */
+const THEME_KEY = 'codesandbox_theme';
 const SPLIT_KEY = 'practice_split';
 const SPLIT_PANE_MIN_PX = 300;
 const SPLIT_BAR_PX = 12;
@@ -1517,6 +1522,8 @@ function events_wire()
     document.getElementById('load-btn').addEventListener('click', () => document.getElementById('load-input').click());
     document.getElementById('load-input').addEventListener('change', change_load_input);
     document.getElementById('theme-btn').addEventListener('click', click_theme);
+    window.addEventListener('storage', theme_sync);
+    window.addEventListener('pageshow', theme_sync);
     document.getElementById('search').addEventListener('input', input_search);
     document.getElementById('search').addEventListener('keydown', keydown_search);
     document.getElementById('catalog-view').addEventListener('click', click_topic_list);
@@ -2682,6 +2689,21 @@ function click_theme()
     catch {
     }
     refresh_theme_button();
+}
+
+/* the theme picked meanwhile in the sandbox or another tab: THEME_KEY changed, or this page came back from the history */
+function theme_sync()
+{
+    let theme = null;
+    try {
+        theme = localStorage.getItem(THEME_KEY);
+    }
+    catch {
+    }
+    if (((theme === 'light') || (theme === 'dark')) && (theme !== document.documentElement.dataset.theme)) {
+        document.documentElement.dataset.theme = theme;
+        refresh_theme_button();
+    }
 }
 
 /* on the topics, typing outside a field goes to their search, the first character too */
