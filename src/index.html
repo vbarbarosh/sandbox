@@ -2544,7 +2544,7 @@ isolation_start();
       {value: 'sqlite', label: 'SQLite', folder: 'hello-sqlite', note: 'node:sqlite', dependencies: null, is_database: true, is_module: true},
       {value: 'postgres', label: 'PostgreSQL', folder: 'hello-postgres', note: 'PGlite', dependencies: {'@electric-sql/pglite': '^0.6.0'}, is_database: true, is_module: true},
       {value: 'valkey', label: 'Redis', folder: 'hello-valkey', note: 'Valkey', dependencies: {'valkey-wasm': '^0.1.1', ioredis: '^6.1.0'}, is_database: true, is_module: true},
-      {value: 'nedb', label: 'MongoDB', folder: 'hello-nedb', note: 'NeDB', dependencies: {'@seald-io/nedb': '^4.1.2'}, is_database: true, is_module: true},
+      {value: 'mongodb', label: 'MongoDB', folder: 'hello-mongodb', note: 'easydb-server', dependencies: {mongodb: '^7.9.1', '@rckflr/easydb-server': '^0.4.0'}, is_database: true, is_module: true},
   ];
   const NODE_HELLO_JS = 'console.log(`Hello from Node.js ${process.version}`);\n';
   const NODE_EXPRESS_JS = `const express = require('express');
@@ -2616,19 +2616,39 @@ console.log(info.match(/valkey_version:\\S+/)[0]);
 await redis.quit();
 await server.stop();
 `;
-  const NODE_NEDB_JS = `import Datastore from '@seald-io/nedb';
+  const NODE_MONGODB_JS = `import {once} from 'node:events';
+import {MongoClient} from 'mongodb';
+import {createServer} from '@rckflr/easydb-server/src/server.js';
+import {setLogLevel} from '@rckflr/easydb-server/src/utils/logger.js';
 
-/* NeDB keeps documents and queries them the way MongoDB does: the same insert, find and operators, in memory */
-const notes = new Datastore();
-await notes.insertAsync([
-    {text: 'Hello from NeDB', stars: 5},
+/* MongoDB's own driver talks MongoDB's wire protocol to easydb-server, a MongoDB look-alike in plain JavaScript
+   that listens on MongoDB's port in this program, its data in memory: no transactions, $lookup or $facet */
+setLogLevel('warn');
+const server = createServer({port: 27017, host: '127.0.0.1'});
+await once(server, 'listening');
+const client = await MongoClient.connect('mongodb://127.0.0.1:27017');
+
+const notes = client.db('hello').collection('notes');
+await notes.insertMany([
+    {text: 'Hello from MongoDB', stars: 5},
     {text: 'A database in the page', stars: 4},
     {text: 'Skip me', stars: 1},
 ]);
-await notes.updateAsync({text: 'Skip me'}, {$set: {text: 'Not skipped any more'}, $inc: {stars: 2}});
+await notes.updateOne({text: 'Skip me'}, {$set: {text: 'Not skipped any more'}, $inc: {stars: 2}});
 
-const found = await notes.findAsync({stars: {$gte: 3}}, {_id: 0}).sort({stars: -1});
+const found = await notes.find({stars: {$gte: 3}}, {projection: {_id: 0}}).sort({stars: -1}).toArray();
 console.table(found);
+const [total] = await notes.aggregate([{$group: {_id: null, notes: {$sum: 1}, stars: {$avg: '$stars'}}}]).toArray();
+console.log('Notes:', total.notes, 'stars on average:', total.stars);
+const hello = await client.db('admin').command({hello: 1});
+console.log('Wire protocol version:', hello.maxWireVersion);
+
+await client.close();
+server.close();
+`;
+  const NODE_MONGODB_NPMRC = `; easydb-server's optional SQLite storage is a native addon, better-sqlite3, which cannot run here: npm
+; would try to download and build it on every install, in vain. The example keeps its data in memory
+omit=optional
 `;
   const NODE_WASM_FILL_JS = `/* BrowserPod's Node.js has a WebAssembly of its own, without the Global, Tag, Exception and RuntimeError that
    PGlite and Valkey need: they are taken from the browser's own WebAssembly, through what tiny modules export and
@@ -2687,8 +2707,8 @@ function error_from_call(fn)
           return [{name: 'index.js', content: NODE_POSTGRES_JS}, {name: 'wasm-fill.js', content: NODE_WASM_FILL_JS}];
       case 'valkey':
           return [{name: 'index.js', content: NODE_VALKEY_JS}, {name: 'wasm-fill.js', content: NODE_WASM_FILL_JS}];
-      case 'nedb':
-          return [{name: 'index.js', content: NODE_NEDB_JS}];
+      case 'mongodb':
+          return [{name: 'index.js', content: NODE_MONGODB_JS}, {name: '.npmrc', content: NODE_MONGODB_NPMRC}];
       default:
           return [{name: 'index.js', content: NODE_HELLO_JS}];
       }

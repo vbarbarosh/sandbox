@@ -12,8 +12,13 @@ previews and fonts load from CDNs, so it needs the network.
   opens where it was left, its tab and its last pick.
 - Four Node.js examples come with a database, running in the program itself,
   in memory: SQLite (Node's own node:sqlite), PostgreSQL (PGlite), Valkey, the
-  open fork of Redis (valkey-wasm, through ioredis), and NeDB, documents
-  queried as in MongoDB. PostgreSQL and Valkey are built to WebAssembly and
+  open fork of Redis (valkey-wasm, through ioredis), and MongoDB through its
+  own driver, mongodb, talking MongoDB's wire protocol to easydb-server, a
+  look-alike in plain JavaScript listening on MongoDB's port (no transactions,
+  $lookup or $facet): nobody has built the real server for WebAssembly. Its
+  project's .npmrc leaves out easydb-server's optional SQLite storage, a
+  native addon npm would try to download and build in vain.
+  PostgreSQL and Valkey are built to WebAssembly and
   need what BrowserPod's WebAssembly lacks, Global and Tag among them: their
   project's wasm-fill.js takes it from the browser's own. MySQL through
   MariaDB (lite4mariadb) does not run there: it starts 16 threads sharing one
@@ -74,4 +79,4 @@ and keeps its own settings in the note's `apps/sandbox/settings.json`.
 - [PostgreSQL](https://www.postgresql.org/): [PGlite](https://pglite.dev/), [its repository](https://github.com/electric-sql/pglite)
 - [MariaDB](https://mariadb.org/), the MySQL dialect: [lite4mariadb](https://lite4mariadb.shyim.de/)
 - [Redis](https://redis.io/): [Valkey in the v86 emulator](https://valkey.io/try-valkey/); [wadis](https://github.com/cah4a/wadis) is a WASM build for Node.js and Bun tests, not for a browser
-- [MongoDB](https://www.mongodb.com/), its query language: [mingo](https://github.com/kofrasa/mingo), plain JavaScript over objects in memory, no WASM
+- [MongoDB](https://www.mongodb.com/), its query language: [mingo](https://github.com/kofrasa/mingo), plain JavaScript over objects in memory, no WASM; its wire protocol, for its own drivers: [easydb-server](https://github.com/MauricioPerera/easydb-server), a look-alike in plain JavaScript for Node.js
