@@ -34,6 +34,12 @@
     --string: #a11;
     --keyword: #708;
     --console: #f4f6f8;
+    --html: #e5532d;
+    --css: #2f6fd8;
+    --js: #c9a200;
+    --php: #6a72c8;
+    --node: #3f9142;
+    --prompt: #3b82f6;
 }
 
 html.dark {
@@ -54,6 +60,12 @@ html.dark {
     --string: #c3e88d;
     --keyword: #c792ea;
     --console: #0d1014;
+    --html: #ff7a52;
+    --css: #5b9bff;
+    --js: #f0d33c;
+    --php: #8f97e8;
+    --node: #6cc24a;
+    --prompt: #5b9bff;
 }
 
 * { box-sizing: border-box; }
@@ -120,11 +132,28 @@ h1 span { display: block; color: var(--accent); }
 
 .lede {
     max-width: 440px;
-    margin: 0;
+    margin: 0 0 24px;
     color: var(--muted);
     font-size: 22px;
     line-height: 1.4;
 }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 32px;
+    padding: 0 13px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--panel);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.chip i { width: 9px; height: 9px; border-radius: 50%; }
 
 .window {
     display: flex;
@@ -157,7 +186,7 @@ h1 span { display: block; color: var(--accent); }
 .main { display: flex; flex: 1; min-height: 0; }
 
 .sidebar {
-    width: 168px;
+    width: 144px;
     flex: none;
     padding: 10px 8px;
     border-right: 1px solid var(--border);
@@ -194,7 +223,7 @@ h1 span { display: block; color: var(--accent); }
 
 .pane { display: flex; flex-direction: column; min-width: 0; }
 
-.editor { width: 248px; flex: none; border-right: 1px solid var(--border); }
+.editor { width: 292px; flex: none; border-right: 1px solid var(--border); }
 
 .preview { flex: 1; }
 
@@ -258,6 +287,22 @@ pre {
 .console .line { padding: 4px 12px; }
 
 .console .line span { color: var(--fg-muted); }
+
+.term {
+    flex: 1;
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--console);
+    font-size: 11px;
+    line-height: 1.75;
+    white-space: pre;
+}
+
+.term .p { color: var(--prompt); font-weight: 700; }
+
+.term .m { color: var(--fg-muted); }
+
+.term .ok { color: var(--node); }
 </style>
 </head>
 <body>
@@ -270,7 +315,14 @@ pre {
             vbarbarosh / sandbox
         </div>
         <h1>Write it.<span>Watch it run.</span></h1>
-        <p class="lede">HTML, CSS and JavaScript in one browser tab: the snippets, the code and the running page side by side.</p>
+        <p class="lede">In one browser tab: the snippets, the code and what it runs side by side.</p>
+        <div class="chips">
+            <div class="chip"><i style="background: var(--html)"></i>HTML</div>
+            <div class="chip"><i style="background: var(--css)"></i>CSS</div>
+            <div class="chip"><i style="background: var(--js)"></i>JavaScript</div>
+            <div class="chip"><i style="background: var(--php)"></i>PHP</div>
+            <div class="chip"><i style="background: var(--node)"></i>Node.js</div>
+        </div>
     </div>
     <div class="window">
         <div class="topbar">
@@ -289,15 +341,23 @@ pre {
                 </div>
                 <div class="item nested">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5M5 3h9l5 5v12H5z"/></svg>
-                    Bouncing Ball.html
-                </div>
-                <div class="item nested active">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5M5 3h9l5 5v12H5z"/></svg>
                     Hello.html
                 </div>
                 <div class="item nested">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5M5 3h9l5 5v12H5z"/></svg>
-                    Live Clock.html
+                    Hello.php
+                </div>
+                <div class="item folder">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
+                    hello-express
+                </div>
+                <div class="item nested active">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5M5 3h9l5 5v12H5z"/></svg>
+                    index.js
+                </div>
+                <div class="item nested">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5M5 3h9l5 5v12H5z"/></svg>
+                    package.json
                 </div>
                 <div class="item">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5M5 3h9l5 5v12H5z"/></svg>
@@ -305,27 +365,27 @@ pre {
                 </div>
             </div>
             <div class="pane editor">
-                <div class="pane-head"><b>Hello.html</b></div>
-<pre class="mono"><span class="ln">1</span><span class="t">&lt;style&gt;</span>
-<span class="ln">2</span>  <span class="t">h1</span> { <span class="a">color</span>: <span class="s">#3b82f6</span> }
-<span class="ln">3</span><span class="t">&lt;/style&gt;</span>
+                <div class="pane-head"><b>index.js</b></div>
+<pre class="mono"><span class="ln">1</span><span class="k">const</span> express = require(<span class="s">'express'</span>);
+<span class="ln">2</span>
+<span class="ln">3</span><span class="k">const</span> app = express();
 <span class="ln">4</span>
-<span class="ln">5</span><span class="t">&lt;h1&gt;</span>Hello, world<span class="t">&lt;/h1&gt;</span>
-<span class="ln">6</span>
-<span class="ln">7</span><span class="t">&lt;script&gt;</span>
-<span class="ln">8</span>  <span class="k">console</span>.log(<span class="s">"Hello!"</span>);
-<span class="ln">9</span><span class="t">&lt;/script&gt;</span></pre>
+<span class="ln">5</span>app.get(<span class="s">'/'</span>, <span class="k">function</span> (req, res) {
+<span class="ln">6</span>    res.send(<span class="s">'Hello from Express'</span>);
+<span class="ln">7</span>});
+<span class="ln">8</span>
+<span class="ln">9</span>app.listen(<span class="a">3000</span>);
+<span class="ln">10</span>console.log(<span class="s">'Listening on 3000'</span>);</pre>
             </div>
             <div class="pane preview">
                 <div class="pane-head">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
-                    Preview
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 4 4-4 4M12 17h7"/></svg>
+                    Node.js 22
                 </div>
-                <div class="page"><h2>Hello, world</h2></div>
-                <div class="console mono">
-                    <div class="pane-head">Console</div>
-                    <div class="line"><span>›</span> Hello!</div>
-                </div>
+<pre class="term mono"><span class="p">$</span> npm install
+<span class="ok">added 68 packages</span>
+<span class="p">$</span> node index.js
+Listening on 3000</pre>
             </div>
         </div>
     </div>

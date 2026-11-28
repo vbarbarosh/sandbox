@@ -5,7 +5,7 @@
 
 # sandbox
 
-A sandbox in one browser tab: write HTML, CSS and JavaScript and watch it run beside the code.
+A sandbox in one browser tab: write HTML, CSS, JavaScript, PHP or a Node.js project and watch it run beside the code.
 
 **[Website](https://vbarbarosh.github.io/sandbox/src/)**
 

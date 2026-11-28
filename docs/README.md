@@ -27,6 +27,9 @@ previews and fonts load from CDNs, so it needs the network.
   each change:
   - HTML runs in a sandboxed frame; its console output and uncaught errors
     show in the console under the preview;
+  - PHP runs in the page, PHP 8.4 built to WebAssembly
+    ([php-wasm](https://github.com/seanmorris/php-wasm)): the preview shows
+    what the file prints;
   - Markdown and MDX are rendered;
   - JSON opens in a JSON editor;
   - draw.io and Excalidraw files are edited as diagrams;
